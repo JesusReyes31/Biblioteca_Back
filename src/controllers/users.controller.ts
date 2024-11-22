@@ -3,6 +3,8 @@ import { handleHttp } from "../utils/error.handle";
 import { user } from "../models/users.model";
 import { Sequelize } from "sequelize";
 import { uploadImage } from "../firebase/imageController";
+import { Sucursales } from "../models/sucursales.model";
+import { encrypt } from "../utils/bcrypt.handle";
 
 const getUser = async (req: Request, res: Response) => {
     try {
@@ -71,19 +73,29 @@ const getTypeUsers = async (req: Request, res: Response) => {
     }
 }
 
-//El post está dentro del archivo auth.controller ya que sería un controlador para el login
+const getSucForUser = async (req: Request, res: Response) => {
+    try{
+        const { id } = req.params;
+        const sucursales = await Sucursales.findAll({ where: { ID_Usuario: parseInt(id) } });
+        console.log(sucursales);
+        res.status(200).json(sucursales);
+    } catch (error) {
+        handleHttp(res, 'ERROR_GET_USERS_BY_SUCURSAL');
+    }
+}
 
-
+//El post está dentro del archivo auth.controller ya que sería un controlador para el logi
 const putUser = async (req: Request, res: Response) => {
     try{
         const { id } = req.params;
         const User = req.body;
-        const idUser = await user.findByPk(id);
+        console.log(id,User);
+        const idUser = await user.findByPk(parseInt(id));
         if(!idUser){
             return res.status(404).json({ message: "No existe ese usuario"})
         } 
         await idUser.update(User);
-        res.json(idUser);
+        res.json({ message: "Información actualizada exitosamente"});
 
     }catch(error){
         handleHttp(res, 'ERROR_UPDATING_USERS');
@@ -115,6 +127,23 @@ const putUserImage = async (req: Request, res: Response) => {
     }
 }
 
+const putUserPassword = async (req: Request, res: Response) => {
+    try{
+        const { id } = req.params;
+        const { Password } = req.body;
+        console.log(id,Password);
+        const idUser = await user.findByPk(parseInt(id));
+        if(!idUser){
+            return res.status(404).json({ message: "No existe ese usuario"})
+        }
+        const passHash = await encrypt(Password);
+        await idUser.update({ Contra: passHash });
+        res.json({ message: "Contraseña actualizada exitosamente"});
+    }catch(error){
+        handleHttp(res, 'ERROR_UPDATING_USERS');
+    }
+}
+
 const deleteUserr = async (req: Request, res: Response) => {
     try{
         const { id } = req.params;
@@ -131,4 +160,4 @@ const deleteUserr = async (req: Request, res: Response) => {
 }
 
 
-export { getUsers,getTypeUsers, getUser, putUser, putUserImage, deleteUserr };
+export { getSucForUser,getUsers,getTypeUsers, getUser, putUser, putUserImage,putUserPassword, deleteUserr };

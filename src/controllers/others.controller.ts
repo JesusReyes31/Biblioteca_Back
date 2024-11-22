@@ -208,12 +208,15 @@ const nodemail = async (req:Request,res:Response) => {
 //Verificar el token enviado, para ver si se puede mostrar la pagina de reset-password
 const verify_token = async (req:Request,res:Response) => {
     const token = req.headers.authorization;
-    
     if (!token) {
         return res.status(401).json({ message: 'Token no proporcionado' });
     }
-
     try {
+        //Checar si el token existe en la BD
+        const tokenDB = await Tokens.findOne({ where: { Token: token } });
+        if(!tokenDB){
+            return res.status(401).json({ message: 'Token no existe' });
+        }   
         // Verificar el token
         const decoded = jwt.verify(token, process.env.JWT_SECRET as string);
         // Enviar respuesta positiva si el token es válido
