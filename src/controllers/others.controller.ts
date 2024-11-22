@@ -331,9 +331,9 @@ const credencial = async (req: Request, res: Response) => {
                 });
                 if (User.Imagen) {
                     try {
-                        const decoded = jwt.verify(User.Imagen, process.env.JWT_SECRET || "secreto.01");
-                        const imageUrl = decoded.toString();
-                        const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+                        // const decoded = jwt.verify(User.Imagen, process.env.JWT_SECRET || "secreto.01");
+                        // const imageUrl = decoded.toString();
+                        const response = await axios.get(User.Imagen, { responseType: 'arraybuffer' });
                         console.log('Tipo de contenido:', response.headers['content-type']);
                         
                         const contentType = response.headers['content-type'];
@@ -355,8 +355,8 @@ const credencial = async (req: Request, res: Response) => {
                         
                         // Dibujar la imagen en el PDF
                         page.drawImage(image, {
-                            x: 130,
-                            y: page.getHeight() - 310, // Posición vertical
+                            x: 110,
+                            y: page.getHeight() - 330, // Posición vertical
                             width,
                             height,
                         });
@@ -367,6 +367,7 @@ const credencial = async (req: Request, res: Response) => {
                 }               
                 // Insertar código de barras
                 const barcodeOptions = { bcid: 'code128', text: id.toString() };
+                // Convertir el código de barras a una imagen
                 const barcodeBuffer = await bwipjs.toBuffer(barcodeOptions);
                 const barcodeImage = await pdfDoc.embedPng(barcodeBuffer);          
                 // Insertar la imagen del código de barras
@@ -382,6 +383,8 @@ const credencial = async (req: Request, res: Response) => {
             }
             // Leer el contenido del PDF y enviarlo como respuesta
             const pdfContent = fs.readFileSync(pdfPath);
+            //Eliminar el archivo temporal
+            fs.unlinkSync(pdfPath);
             res.setHeader('Content-Disposition', 'inline; filename="Credencial_usuario.pdf"');
             res.contentType('application/pdf');
             res.send(pdfContent);
