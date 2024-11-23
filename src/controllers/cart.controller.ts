@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { handleHttp } from "../utils/error.handle";
 import { Carrito } from "../models/cart.model";
 import { Book } from "../models/books.model";
+import { Sequelize } from "sequelize";
 
 // Para obtener información específica de 1 artículo en el carrito
 const getCart = async (req: Request, res: Response) => {
@@ -18,8 +19,27 @@ const getCart = async (req: Request, res: Response) => {
 // Para obtener todo el carrito del usuario
 const getCarts = async (req: Request, res: Response) => {
     try {
-        const datos = req.body;
-        const Carts = await Carrito.findAll({ where: { ID_Usuario: datos.ID_Usuario, ID_Libro: datos.ID_Libro } });
+        const { id } = req.params;
+        console.log(id)
+        const Carts = await Carrito.findAll({ 
+            where: { ID_Usuario: parseInt(id)},
+            attributes: [
+                'ID', 
+                'Cantidad',
+                'ID_Libro',
+                'ID_Usuario',
+                [Sequelize.col('Book.Titulo'), 'Titulo'],
+                [Sequelize.col('Book.Autor'), 'Autor'],
+                [Sequelize.col('Book.Precio'), 'Precio'],
+                [Sequelize.col('Book.Imagen'), 'Imagen'],
+                [Sequelize.col('Book.Cantidad'), 'Cantidad_disponible']
+            ],
+            include: [{
+                model: Book,
+                attributes: ['ID', 'Titulo','Autor', 'Precio', 'Imagen','Cantidad']
+            }]
+        });
+        console.log(Carts)
         res.status(200).json(Carts);
     } catch (error) {
         handleHttp(res, 'ERROR_GET_CARRITO', error);
@@ -35,8 +55,28 @@ const addToCart = async (req: Request, res: Response) => {
         if (!libroExistente) {
             return res.status(404).json({ message: "El libro no está registrado" });
         }
-        // Si el libro existe, se agrega al carrito
-        const nuevoItem = await Carrito.create({ ID_Usuario, ID_Libro, Cantidad });
+
+        // Buscar si ya existe el item en el carrito
+        const itemExistente = await Carrito.findOne({
+            where: {
+                ID_Usuario: ID_Usuario,
+                ID_Libro: ID_Libro
+            }
+        });
+
+        if (itemExistente) {
+            // Si existe, actualizar la cantidad
+            itemExistente.Cantidad += Cantidad;
+            await itemExistente.save();
+            return res.status(200).json(itemExistente);
+        }
+
+        // Si no existe, crear nuevo item
+        const nuevoItem = await Carrito.create({ 
+            ID_Usuario: parseInt(ID_Usuario), 
+            ID_Libro: ID_Libro, 
+            Cantidad: Cantidad 
+        });
         res.status(201).json(nuevoItem);
     } catch (error) {
         handleHttp(res, 'ERROR_POST_CARRITO', error);

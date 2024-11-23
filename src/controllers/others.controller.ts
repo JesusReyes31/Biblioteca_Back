@@ -81,6 +81,7 @@ const search = async (req: Request, res: Response) => {
                 ]
             }
         });
+        console.log(busqueda)
         // Verificar si se encontraron resultados
         if (busqueda.length > 0) {
             res.json(busqueda);
