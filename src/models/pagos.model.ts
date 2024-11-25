@@ -7,8 +7,9 @@ interface MetodosPagoAttribute {
     ID_Usuario: number;
     Nombre_Titular: string;
     Numero_Tarjeta: string;
-    Fecha_Vencimiento: Date;
-    CVV: string;
+    Fecha_Vencimiento: string;
+    Tipo_Tarjeta: string;
+    Activa: boolean;
 }
 
 // Atributos opcionales para la creación de un usuario
@@ -20,15 +21,15 @@ class MetodosPago extends Model<MetodosPagoAttribute, MetodosPagoCreationAttribu
     public ID_Usuario!: number;
     public Nombre_Titular!: string;
     public Numero_Tarjeta!: string;
-    public Fecha_Vencimiento!: Date;
-    public CVV!: string;
+    public Fecha_Vencimiento!: string;
+    public Tipo_Tarjeta!: string;
+    public Activa!: boolean;
 }
 
 // Inicialización del modelo
 MetodosPago.init({
     ID:{
         type: DataTypes.INTEGER,
-        allowNull: false,
         primaryKey: true,
         autoIncrement:true
     },
@@ -45,16 +46,20 @@ MetodosPago.init({
         allowNull: false
     },
     Fecha_Vencimiento: {
-        type: DataTypes.DATE,
+        type: DataTypes.STRING,
         allowNull: false
     },
-    CVV: {
+    Tipo_Tarjeta: {
         type: DataTypes.STRING,
+        allowNull: false
+    },
+    Activa: {
+        type: DataTypes.BOOLEAN,
         allowNull: false
     },
 }, {
     sequelize,
-    tableName: 'Metodos_Pago', // Cambiado a 'Libros' si es la tabla correspondiente
+    tableName: 'Metodos_Pago', 
     timestamps: false,
 });
 

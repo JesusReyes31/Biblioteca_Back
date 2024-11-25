@@ -61,6 +61,10 @@ Detail.belongsTo(Venta, { foreignKey: 'ID_Venta'});
 Sucursales.hasMany(Book, { foreignKey: 'ID_Sucursal' });
 Book.belongsTo(Sucursales, { foreignKey: 'ID_Sucursal', targetKey: 'ID'});
 
+//Relaciones de Metodos de Pago
+MetodosPago.hasMany(Venta, { foreignKey: 'ID_Metodo_Pago', onDelete: 'NO ACTION' });
+Venta.belongsTo(MetodosPago, { foreignKey: 'ID_Metodo_Pago', onDelete: 'NO ACTION', targetKey: 'ID'});
+
 // Si estás usando sincronización automática:
 sequelize.sync({ force: false })  // Si deseas borrar y recrear las tablas, usa `force: true`, pero en producción, mejor usa `force: false`.
 .then(() => {

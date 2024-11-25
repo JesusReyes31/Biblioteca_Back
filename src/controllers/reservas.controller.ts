@@ -5,6 +5,7 @@ import { Book } from "../models/books.model";
 import { user } from "../models/users.model";
 import { Sequelize } from "sequelize";
 import { Prestamos } from "../models/Prestamos.model";
+import { Carrito } from "../models/cart.model";
 
 const getReserva = async (req: Request, res: Response) => {
     try {
@@ -67,8 +68,6 @@ const postReserva = async (req: Request, res: Response) => {
     const { ID_libro, ID_usuario } = req.body;
   
     const id = parseInt(ID_usuario); // Convierte el ID_usuario a entero
-    // console.log('ID_usuario recibido:', ID_usuario);
-    // console.log('id convertido a entero:', id);
   
     if (isNaN(id)) {
       return res.status(400).json({ message: 'ID de usuario no válido' });
@@ -79,6 +78,27 @@ const postReserva = async (req: Request, res: Response) => {
       const usuario = await user.findByPk(id);
       if (!usuario) {
         return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      // Verificar el carrito para este libro
+      const carritoItems = await Carrito.findAll({
+        where: {
+          ID_Libro: ID_libro
+        }
+      });
+
+      for (const carritoItem of carritoItems) {
+        if (carritoItem.Cantidad > 0) {
+          // Disminuir la cantidad en el carrito
+          await carritoItem.update({
+            Cantidad: carritoItem.Cantidad - 1
+          });
+      
+          // Si la cantidad llega a 0, eliminar el item del carrito
+          if (carritoItem.Cantidad === 0) {
+            await carritoItem.destroy();
+          }
+        }
       }
 
       // Verificar si existe un préstamo activo para este libro y usuario

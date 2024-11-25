@@ -22,12 +22,22 @@ const getDetails = async (req: Request, res: Response) => {
 }
 
 const postDetail = async( req: Request, res:Response) => {
-
+    let newDetails: any[] = [];
     try{
-        const Detail = req.body;
-        const newDetail = await Detail.create(Detail);
-        res.status(201).json(newDetail);
+        const { id } = req.params;
+        const Detalles = req.body.Detalles;
+        console.log(Detalles);
+        Detalles.forEach(async (element: any) => {
+            element.ID_Venta = parseInt(id);
+            const newDetail = await Detail.create(element);
+            newDetails.push(newDetail);
+        });
+        console.log(newDetails);
+        res.status(201).json({message: "Detalles de Venta creados correctamente"});
     } catch{
+        newDetails.forEach(async (element: any) => {
+            await element.destroy();    
+        });
         handleHttp(res, 'ERROR_POSTING_DETAILSALE')
     }
 }

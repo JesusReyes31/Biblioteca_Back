@@ -9,6 +9,7 @@ interface VentaAttributes {
     Cantidad: number;
     Total: number;
     Entregado: "Si" | "No";
+    ID_Metodo_Pago: number;
 }
 
 // Atributos opcionales para la creación de un usuario
@@ -22,6 +23,7 @@ class Venta extends Model<VentaAttributes, VentaCreationAttributes> implements V
     public Cantidad!: number;
     public Total!: number;
     public Entregado!:"Si" | "No";
+    public ID_Metodo_Pago!: number;
 }
 
 // Inicialización del modelo
@@ -50,11 +52,16 @@ Venta.init({
     },
     Entregado: {
         type: DataTypes.ENUM("Si", "No"),
-        allowNull: false
+        allowNull: false,
+        defaultValue: "No"
+    },
+    ID_Metodo_Pago: {
+        type: DataTypes.INTEGER,
+        allowNull: true
     },
 }, {
     sequelize,
-    tableName: 'Ventas', // Cambiado a 'Libros' si es la tabla correspondiente
+    tableName: 'Ventas', 
     timestamps: false,
 });
 

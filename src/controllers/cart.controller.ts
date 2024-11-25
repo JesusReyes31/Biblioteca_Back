@@ -20,7 +20,7 @@ const getCart = async (req: Request, res: Response) => {
 const getCarts = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        console.log(id)
+        // console.log(id)
         const Carts = await Carrito.findAll({ 
             where: { ID_Usuario: parseInt(id)},
             attributes: [
@@ -39,7 +39,7 @@ const getCarts = async (req: Request, res: Response) => {
                 attributes: ['ID', 'Titulo','Autor', 'Precio', 'Imagen','Cantidad']
             }]
         });
-        console.log(Carts)
+        // console.log(Carts)
         res.status(200).json(Carts);
     } catch (error) {
         handleHttp(res, 'ERROR_GET_CARRITO', error);

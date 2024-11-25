@@ -243,8 +243,8 @@ const prinAdminSuc = async (req:Request,res:Response) => {
             Venta.count(), //Cuenta de Ventas Completas
             Venta.count({ where: { Entregado: 'No' } }) //Cuentas de Ventas sin entregar
         ]);
-        const adminCounts = { clientes: clientesCount, inventario: inventarioCount, prestamos: prestamosCount, totalBooks: totalBooksCount, distinctGeneros: distinctGenerosCount, reservas: reservasCount, prestamosTotal: prestamosTotalCount, prestamosPendientes: prestamosPendientesCount, totalVentas: totalVentasCount, ventasNoEntregadas: ventasNoEntregadasCount};
-        // console.log(adminCounts)
+        const adminCounts = { clientes: clientesCount, inventario: inventarioCount, prestamos: prestamosCount, totalLibros: totalBooksCount, generos: distinctGenerosCount, reservas: reservasCount, prestamosTotal: prestamosTotalCount, prestamosPendientes: prestamosPendientesCount, totalVentas: totalVentasCount, ventasNoEntregadas: ventasNoEntregadasCount};
+        console.log(adminCounts)
         res.json(adminCounts);
     } catch (err) {
         console.error('Error al ejecutar la consulta SQL:', err);
@@ -271,6 +271,20 @@ const prinAdmin = async (req:Request,res:Response) => {
         res.status(500).send('Error interno del servidor');
     }
 }
+
+//Consulta para inicio del Cliente, Inventario y Prestamos
+const prinGen = async (req:Request,res:Response) => {
+    try {
+        //Consulta un aleatorio de 4 libros disponibles cambiantes
+        const libros = await Book.findAll({ where: { Disponibilidad: 'Disponible' }, order: Sequelize.literal('NEWID()'), limit: 4 });
+        res.json(libros);
+    } catch (err) {
+        console.error('Error al ejecutar la consulta SQL:', err);
+        res.status(500).send('Error interno del servidor');
+    }
+}
+
+//Generar credencial en PDF
 const credencial = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
@@ -541,4 +555,4 @@ const reportes = async (req:Request,res:Response) => {
     }
 }
 
-export {getGenres,getBooksByGenre,search,nodemail,resetpassword,prinAdminSuc,prinAdmin,credencial,reportes,verify_token};
+export {getGenres,getBooksByGenre,search,nodemail,resetpassword,prinAdminSuc,prinAdmin,prinGen,credencial,reportes,verify_token};
