@@ -1,6 +1,9 @@
 import {Request, Response, Express } from "express"
 import {registerNewUser, loginUser} from "../services/auth";
 import jwt from 'jsonwebtoken';
+import { ActivationToken } from "../models/activation_tokens.model";
+import { Op } from "sequelize";
+import { user } from "../models/users.model";
 
 const registerCtrl = async (req:Request, res:Response) =>{
     const responseUser = await registerNewUser(req.body);
@@ -46,4 +49,37 @@ const verifyTokenCtrl = (req: Request, res: Response) => {
         return res.status(403).json({ message: 'Token no válido o expirado' });
     }
 };
-export{loginCtrl, registerCtrl,verifyTokenCtrl}
+
+const activateAccountCtrl = async (req: Request, res: Response) => {
+    try {
+        const { token } = req.params;
+        
+        const activationToken = await ActivationToken.findOne({
+            where: {
+                Token: token,
+                Usado: false,
+            }
+        });
+
+        if (!activationToken) {
+            return res.status(400).json({ 
+                message: "El enlace de activación es inválido o ha expirado" 
+            });
+        }
+
+        // Activar usuario
+        await user.update(
+            { Activo: true },
+            { where: { ID: activationToken.ID_Usuario } }
+        );
+
+        // Marcar token como usado
+        await activationToken.update({ Usado: true });
+
+        res.json({ message: "Cuenta activada exitosamente" });
+    } catch (error) {
+        res.status(500).json({ message: "Error al activar la cuenta" });
+    }
+};
+
+export{loginCtrl, registerCtrl,verifyTokenCtrl, activateAccountCtrl}

@@ -106,14 +106,15 @@ const updateCart = async (req: Request, res: Response) => {
 const deleteFromCart = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const item = await Carrito.findByPk(id);
+        const items = await Carrito.findAll({ where: { ID_Usuario: parseInt(id) } });
 
-        if (!item) {
+        if (!items) {
             return res.status(404).json({ message: "Artículo no encontrado en el carrito" });
         }
-
-        await item.destroy();
-        res.json({ message: "Artículo eliminado del carrito" });
+        items.forEach(async (item) => {
+            await item.destroy();
+        });
+        res.json({ message: "Artículo(s) eliminado(s) del carrito" });
     } catch (error) {
         handleHttp(res, 'ERROR_DELETE_CARRITO', error);
     }

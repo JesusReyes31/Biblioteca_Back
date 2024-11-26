@@ -15,9 +15,10 @@ const getSucursal = async (req:Request,res:Response)=>{
 const getSucursales = async (req:Request,res:Response)=>{
     try {
         const sucursales = await Sucursales.findAll();
-        // console.log(sucursales)
+        console.log(sucursales)
         return sucursales ? res.json(sucursales) : res.status(404).json({ message: "No se hay Sucursales Registradas" });
     } catch (error) {
+        console.log(error)
         handleHttp(res, 'ERROR_GET_SUCURSAL', error);
     }
 }

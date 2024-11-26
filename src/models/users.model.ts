@@ -12,6 +12,7 @@ interface UserAttributes {
     Imagen?: string | null;
     Tipo_Usuario: string;
     Fecha_Registro: Date;
+    Activo: boolean;
 }
 
 // Atributos opcionales para la creación de un usuario
@@ -28,6 +29,7 @@ class user extends Model<UserAttributes, UserCreationAttributes> implements User
     public Tipo_Usuario!:string;
     public Imagen!: string | null;
     public Fecha_Registro!: Date;
+    public Activo!: boolean;
 }
 
 // Inicialización del modelo
@@ -68,6 +70,11 @@ user.init({
     Fecha_Registro:{
         type: DataTypes.DATE,
         allowNull:false
+    },
+    Activo: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false  // Por defecto, el usuario estará inactivo
     }
 }, {
     sequelize,

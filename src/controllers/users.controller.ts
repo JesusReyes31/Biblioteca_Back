@@ -5,6 +5,8 @@ import { Sequelize } from "sequelize";
 import { uploadImage } from "../firebase/imageController";
 import { Sucursales } from "../models/sucursales.model";
 import { encrypt } from "../utils/bcrypt.handle";
+import { Op } from "sequelize";
+import { ActivationToken } from "../models/activation_tokens.model";
 
 const getUser = async (req: Request, res: Response) => {
     try {
@@ -50,25 +52,27 @@ const getUsers = async (req: Request, res: Response) => {
 
 }
 const getTypeUsers = async (req: Request, res: Response) => {
-    try{
+    try {
         const u = req.body.user.User;
         const userTypeMapping: { [key: string]: string[] } = {
-            Admin: ['Admin Sucursal', 'Prestamos', 'Inventario','Cliente'],
-            'Admin Sucursal': ['Prestamos', 'Inventario','Cliente'],
-            Prestamos: ['Cliente','Inventario']
-          };
+            Admin: ['Admin Sucursal', 'Prestamos', 'Inventario', 'Cliente'],
+            'Admin Sucursal': ['Prestamos', 'Inventario', 'Cliente'],
+            Prestamos: ['Cliente', 'Inventario']
+        };
+        
         const allowedTypes = userTypeMapping[u.Tipo_Usuario];
         if (!allowedTypes) {
             return res.status(403).json({ message: 'Rol no válido para esta acción' });
         }
-        const users = await user.findAll({
-            attributes: [[Sequelize.fn('DISTINCT', Sequelize.col('Tipo_Usuario')), 'Tipo_Usuario']],
-            where: {
-                Tipo_Usuario: allowedTypes
-            }
-        });
-        res.status(200).json(users);
-    } catch(error){
+
+        // Transformar el array en un array de objetos para el JSON
+        const typesResponse = allowedTypes.map(type => ({
+            Tipo_Usuario: type
+        }));
+
+        
+        res.status(200).json(typesResponse);
+    } catch(error) {
         handleHttp(res, 'ERROR_GET_USERS');
     }
 }
@@ -159,5 +163,29 @@ const deleteUserr = async (req: Request, res: Response) => {
     }
 }
 
+const activateUser = async (req: Request, res: Response) => {
+    try {
+        const { token } = req.params;
+        
+        const activationToken = await ActivationToken.findOne({
+            where: {
+                Token: token,
+            }
+        });
 
-export { getSucForUser,getUsers,getTypeUsers, getUser, putUser, putUserImage,putUserPassword, deleteUserr };
+        if (!activationToken) {
+            return res.status(400).json({ message: "Token inválido o expirado" });
+        }
+
+        // Activar usuario
+        await user.update(
+            { Activo: true },
+            { where: { ID: activationToken.ID_Usuario } }
+        );
+        res.json({ message: "Cuenta activada exitosamente" });
+    } catch (error) {
+        handleHttp(res, 'ERROR_ACTIVATING_USER');
+    }
+};
+
+export { getSucForUser,getUsers,getTypeUsers, getUser, putUser, putUserImage,putUserPassword, deleteUserr, activateUser };

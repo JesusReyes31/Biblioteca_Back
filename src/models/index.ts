@@ -3,6 +3,8 @@ import { Book } from './books.model';
 import { Carrito } from './cart.model';
 import { Detail } from './detailsales.model';
 import { MetodosPago } from './pagos.model';
+import { Pago_Pendiente } from './pagos_pendientes.model';
+import { Personal } from './personal.model';
 import { Prestamos } from './Prestamos.model';
 import { Resenas } from './Resenas.model';
 import { Reservas } from './Reservas.model';
@@ -64,6 +66,20 @@ Book.belongsTo(Sucursales, { foreignKey: 'ID_Sucursal', targetKey: 'ID'});
 //Relaciones de Metodos de Pago
 MetodosPago.hasMany(Venta, { foreignKey: 'ID_Metodo_Pago', onDelete: 'NO ACTION' });
 Venta.belongsTo(MetodosPago, { foreignKey: 'ID_Metodo_Pago', onDelete: 'NO ACTION', targetKey: 'ID'});
+
+//Relaciones de Personal
+user.hasOne(Personal, { foreignKey: 'ID_Usuario' });
+Personal.belongsTo(user, { foreignKey: 'ID_Usuario', targetKey: 'ID'});
+
+Sucursales.hasMany(Personal, { foreignKey: 'ID_Sucursal' });
+Personal.belongsTo(Sucursales, { foreignKey: 'ID_Sucursal', targetKey: 'ID'});
+
+//Relaciones de Pagos Pendientes
+Venta.hasOne(Pago_Pendiente, { foreignKey: 'ID_Venta', onDelete: 'NO ACTION'  });
+Pago_Pendiente.belongsTo(Venta, { foreignKey: 'ID_Venta', onDelete: 'NO ACTION' });
+
+user.hasMany(Pago_Pendiente, { foreignKey: 'ID_Usuario' });
+Pago_Pendiente.belongsTo(user, { foreignKey: 'ID_Usuario',targetKey: 'ID'});
 
 // Si estás usando sincronización automática:
 sequelize.sync({ force: false })  // Si deseas borrar y recrear las tablas, usa `force: true`, pero en producción, mejor usa `force: false`.

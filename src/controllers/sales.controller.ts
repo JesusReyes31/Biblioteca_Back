@@ -1,7 +1,8 @@
 import { Request, Response } from "express"
 import { handleHttp } from "../utils/error.handle";
 import { Venta } from "../models/sales.model";
-
+import { user } from "../models/users.model";
+import { Sequelize } from "sequelize";
 // Obtener Ventas pendientes de entrega
 const getVentasPendientes = async (req: Request, res: Response) => {
     try {
@@ -9,6 +10,23 @@ const getVentasPendientes = async (req: Request, res: Response) => {
             where: {
                 Entregado: "No"
             },
+            attributes: [
+                'ID_Venta',
+                'ID_Usuario',
+                'Cantidad',
+                [Sequelize.col('user.Nombre_Usuario'), 'Nombre_Usuario'],
+                [
+                    Sequelize.literal("CONVERT(VARCHAR(10), Venta.Fecha_Venta, 120)"),
+                    'Fecha_Venta'
+                ],
+                'Total',
+                'Entregado'],
+            include: [
+                {
+                    model: user,
+                    attributes: []
+                }
+            ],
             order: [
                 ['Fecha_Venta', 'ASC'] // Ordenadas por fecha, las más antiguas primero
             ]
@@ -20,13 +38,14 @@ const getVentasPendientes = async (req: Request, res: Response) => {
                 data: []
             });
         }
-
+        console.log(ventasPendientes[0].dataValues)
         return res.status(200).json({
             message: "Ventas pendientes de entrega encontradas",
             data: ventasPendientes
         });
 
     } catch (error) {
+        console.log(error)
         return res.status(500).json({
             message: "Error al obtener las ventas pendientes",
             error: error
@@ -62,6 +81,7 @@ const getSalesID = async (req: Request, res: Response) => {
         const SaleID = await Venta.findAll({
             where: { ID_Usuario: parseInt(id) } // Aquí haces la búsqueda por el ID del usuario
         });
+        console.log(SaleID)
         if (SaleID.length > 0) {
             res.status(200).json(SaleID); // Enviar las ventas encontradas
         } else {

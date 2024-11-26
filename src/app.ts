@@ -6,6 +6,7 @@ import './models';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { initScheduledJobs } from './utils/programadas.handle';
 const PORT = process.env.PORT || 3001;
 const app = express();
 app.use(cors({
@@ -55,6 +56,7 @@ app.get('/images', (req: Request, res: Response) => {
   });
 // Middleware para servir imágenes estáticamente
 
-
+// Iniciar tareas programadas
+initScheduledJobs();
 
 app.listen(PORT,()=>console.log(`Servidor escuchando en el puerto ${PORT}`))
