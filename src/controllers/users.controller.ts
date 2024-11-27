@@ -7,6 +7,7 @@ import { Sucursales } from "../models/sucursales.model";
 import { encrypt } from "../utils/bcrypt.handle";
 import { Op } from "sequelize";
 import { ActivationToken } from "../models/activation_tokens.model";
+import { Personal } from "../models/personal.model";
 
 const getUser = async (req: Request, res: Response) => {
     try {
@@ -151,6 +152,14 @@ const putUserPassword = async (req: Request, res: Response) => {
 const deleteUserr = async (req: Request, res: Response) => {
     try{
         const { id } = req.params;
+        const token_activation = await ActivationToken.findOne({where:{ID_Usuario:parseInt(id)}});
+        if(token_activation){
+            await token_activation.destroy()
+        }
+        const personal = await Personal.findOne({where:{ID_Usuario:parseInt(id)}});
+        if(personal){
+            await personal.destroy()
+        }
         const idUser = await user.findByPk(id);
         if(!idUser){
             return res.status(404).json({ message: "No existe ese usuario"})

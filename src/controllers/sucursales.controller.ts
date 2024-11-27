@@ -35,14 +35,19 @@ const postSucursal = async (req:Request,res:Response)=>{
         }
         const newSuc = await Sucursales.create(Suc);
         res.status(201).json(newSuc);
-    } catch{
-        handleHttp(res, 'ERROR_POSTING_SUCURSAL')
+    } catch(error){
+        handleHttp(res, 'ERROR_POSTING_SUCURSAL',error)
     }
 }
 const putSucursal = async (req:Request,res:Response) => {
     try{
         const { id } = req.params;
         const Suc = req.body;
+        console.log('Actualizando Sucursal',Suc)
+        if(!Suc.Nombre){
+            putSucursalIDUser(req,res)
+            return
+        }
         const idSuc = await Sucursales.findByPk(id);
         if(!idSuc){
             return res.status(404).json({ message: "No existe esa Sucursal"})
@@ -50,7 +55,21 @@ const putSucursal = async (req:Request,res:Response) => {
         await idSuc.update(Suc);
         res.json(idSuc);
     }catch(error){
-        handleHttp(res, 'ERROR_UPDATING_SUCURSAL');
+        handleHttp(res, 'ERROR_UPDATING_SUCURSAL',error);
+    }
+}
+const putSucursalIDUser = async (req:Request,res:Response) => {
+    try{
+        const { id } = req.params;
+        const {ID_Usuario} = req.body;
+        const idSuc = await Sucursales.findByPk(id);
+        if(!idSuc){
+            return res.status(404).json({ message: "No existe esa Sucursal"})
+        } 
+        await idSuc.update({ID_Usuario});
+        res.json(idSuc);
+    }catch(error){
+        handleHttp(res, 'ERROR_UPDATING_SUCURSAL',error);
     }
 }
 const deleteSucursal = async (req:Request,res:Response) =>{
@@ -63,8 +82,8 @@ const deleteSucursal = async (req:Request,res:Response) =>{
         await Suc.destroy()
         res.json({ message:"Sucursal borrada de la base de datos"});
 
-    }catch{
-        handleHttp(res, 'ERROR_DELETING_SUCURSAL')
+    }catch(error){
+        handleHttp(res, 'ERROR_DELETING_SUCURSAL',error)
     }
 }
-export {getSucursal,getSucursales,postSucursal,putSucursal,deleteSucursal}
+export {getSucursal,getSucursales,postSucursal,putSucursal,putSucursalIDUser,deleteSucursal}

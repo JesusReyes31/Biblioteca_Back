@@ -7,6 +7,7 @@ import { user } from "../models/users.model";
 
 const registerCtrl = async (req:Request, res:Response) =>{
     const responseUser = await registerNewUser(req.body);
+    console.log('Respuesta',responseUser)
     res.send(responseUser);
 }
 

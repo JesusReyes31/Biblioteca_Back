@@ -104,20 +104,34 @@ const updateCart = async (req: Request, res: Response) => {
 
 // Para eliminar un artículo del carrito
 const deleteFromCart = async (req: Request, res: Response) => {
+    console.log(req.params)
     try {
-        const { id } = req.params;
-        const items = await Carrito.findAll({ where: { ID_Usuario: parseInt(id) } });
+        const { id, libro } = req.params;
+        const item = await Carrito.findOne({ where: { ID_Usuario: parseInt(id), ID_Libro: libro } });
 
-        if (!items) {
+        if (!item) {
             return res.status(404).json({ message: "Artículo no encontrado en el carrito" });
         }
-        items.forEach(async (item) => {
-            await item.destroy();
-        });
+        item.destroy();
         res.json({ message: "Artículo(s) eliminado(s) del carrito" });
     } catch (error) {
         handleHttp(res, 'ERROR_DELETE_CARRITO', error);
     }
 };
 
-export { getCart, getCarts, addToCart, updateCart, deleteFromCart };
+//Eliminar todos los artículos del carrito de un usuario
+const deleteAllCart = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        console.log(id)
+        const items = await Carrito.findAll({ where: { ID_Usuario: parseInt(id) } });
+        items.forEach(async (item) => {
+            await item.destroy();
+        });
+        res.json({ message: "Artículo(s) eliminado(s) del carrito" });
+    } catch (error) {
+        handleHttp(res, 'ERROR_DELETE_ALL_CARRITO', error);
+    }
+};
+
+export { getCart, getCarts, addToCart, updateCart, deleteFromCart, deleteAllCart };

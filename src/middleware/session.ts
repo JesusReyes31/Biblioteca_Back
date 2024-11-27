@@ -11,7 +11,7 @@ interface CustomRequest extends Request {
 const checkAuth = (req: CustomRequest, res: Response, next: NextFunction) => {
   // Obtener el token desde la cabecera Authorization
   const token = req.headers['authorization'];
-  // console.log(req.headers,token)
+  console.log('Token',token)
   if (!token) {
     return res.status(401).json({ message: 'Token no proporcionado' });
   }
@@ -19,7 +19,7 @@ const checkAuth = (req: CustomRequest, res: Response, next: NextFunction) => {
     // Verificar y desencriptar el token
     const decoded = jwt.verify(token, SECRET_KEY);
     req.body.user = decoded; // Almacena la información del usuario en la solicitud
-
+    console.log('Decodificado',req.body.user)
     // Si el token es válido, sigue con la siguiente función middleware o ruta
     next();
   } catch (error) {

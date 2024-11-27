@@ -64,7 +64,7 @@ const registerNewUser = async(body: any)=>{
 
         return {
             message: "Usuario registrado con éxito. Por favor, revise su correo para activar la cuenta.",
-            datos: body
+            datos: {Nombre_completo:body.Nombre_completo,Correo:body.Correo,Tipo_Usuario:body.Tipo_Usuario,Nombre_Usuario:body.Nombre_Usuario,CURP:body.CURP,ID:registerNewUser.ID}
         };
     }
     return {message:"No se pudo registrar al usuario, intentelo de nuevo"};;
