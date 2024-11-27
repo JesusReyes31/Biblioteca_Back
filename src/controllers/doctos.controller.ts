@@ -7,6 +7,7 @@ import { handleHttp } from "../utils/error.handle";
 import { Sequelize } from "sequelize";
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import fs from 'fs';
+import { Prestamos } from "../models/Prestamos.model";
 
 const generarRecibo = async (req: Request, res: Response) => {
     try {
@@ -53,7 +54,7 @@ const generarRecibo = async (req: Request, res: Response) => {
 
         // Crear el PDF
         const pdfDoc = await PDFDocument.create();
-        const page = pdfDoc.addPage([600, 800]); // Tamaño carta aproximado
+        let page = pdfDoc.addPage([600, 800]); // Tamaño carta aproximado
         const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
         const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
@@ -233,4 +234,194 @@ const generarRecibo = async (req: Request, res: Response) => {
     }
 };
 
-export { generarRecibo };
+const generarInformePrestamos = async (req: Request, res: Response) => {
+    try {
+        // Obtener todos los préstamos con información relacionada
+        const prestamos: any[] = await Prestamos.findAll({
+            attributes: [
+                'ID_Prestamo',
+                'Fecha_prestamo',
+                'Fecha_devolucion_prevista',
+                'Estado',
+                [Sequelize.col('user.Nombre_Usuario'), 'nombre_usuario'],
+                [Sequelize.col('Book.Titulo'), 'titulo_libro']
+            ],
+            include: [
+                {
+                    model: user,
+                    attributes: []
+                },
+                {
+                    model: Book,
+                    attributes: []
+                }
+            ],
+            raw: true
+        });
+
+        // Crear el PDF
+        const pdfDoc = await PDFDocument.create();
+        let page = pdfDoc.addPage([600, 800]); // Tamaño carta
+        const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+        // Configuración de la página
+        const { width, height } = page.getSize();
+        const margin = 35;
+        let yPosition = height - margin - 20;
+
+        // Título y fecha del informe
+        page.drawText('Informe de Préstamos', {
+            x: margin,
+            y: yPosition,
+            size: 24,
+            font: helveticaBold,
+            color: rgb(0, 0, 0)
+        });
+        yPosition -= 30;
+
+        const fechaActual = new Date().toLocaleDateString();
+        page.drawText(`Fecha de generación: ${fechaActual}`, {
+            x: margin,
+            y: yPosition,
+            size: 12,
+            font: helveticaFont
+        });
+        yPosition -= 40;
+
+        // Resumen
+        const prestamosActivos = prestamos.filter(p => p.Estado === 'Pendiente').length;
+        const prestamosDevueltos = prestamos.filter(p => p.Estado === 'Devuelto').length;
+
+        page.drawText('Resumen:', {
+            x: margin,
+            y: yPosition,
+            size: 14,
+            font: helveticaBold
+        });
+        yPosition -= 20;
+
+        page.drawText(`Total de préstamos: ${prestamos.length}`, {
+            x: margin,
+            y: yPosition,
+            size: 12,
+            font: helveticaFont
+        });
+        yPosition -= 20;
+
+        page.drawText(`Préstamos activos: ${prestamosActivos}`, {
+            x: margin,
+            y: yPosition,
+            size: 12,
+            font: helveticaFont
+        });
+        yPosition -= 20;
+
+        page.drawText(`Préstamos devueltos: ${prestamosDevueltos}`, {
+            x: margin,
+            y: yPosition,
+            size: 12,
+            font: helveticaFont
+        });
+        yPosition -= 40;
+
+        // Tabla de préstamos
+        const tableHeaders = ['ID', 'Usuario', 'Libro', 'Fecha Préstamo', 'Fecha Devolución', 'Estado'];
+        const columnWidths = [50, 100, 150, 100, 100, 80];
+        let xPosition = margin;
+
+        // Encabezados de la tabla
+        tableHeaders.forEach((header, index) => {
+            page.drawText(header, {
+                x: xPosition,
+                y: yPosition,
+                size: 10,
+                font: helveticaBold
+            });
+            xPosition += columnWidths[index];
+        });
+        yPosition -= 20;
+
+        // Contenido de la tabla
+        prestamos.forEach(prestamo => {
+            // Si no hay suficiente espacio en la página actual, crear una nueva
+            if (yPosition < margin + 50) {
+                page = pdfDoc.addPage([600, 800]);
+                yPosition = height - margin;
+            }
+
+            xPosition = margin;
+
+            // ID
+            page.drawText(prestamo.ID_Prestamo.toString(), {
+                x: xPosition,
+                y: yPosition,
+                size: 9,
+                font: helveticaFont
+            });
+            xPosition += columnWidths[0];
+
+            // Usuario
+            page.drawText(prestamo.nombre_usuario, {
+                x: xPosition,
+                y: yPosition,
+                size: 9,
+                font: helveticaFont
+            });
+            xPosition += columnWidths[1];
+
+            // Libro
+            page.drawText(prestamo.titulo_libro, {
+                x: xPosition,
+                y: yPosition,
+                size: 9,
+                font: helveticaFont
+            });
+            xPosition += columnWidths[2];
+
+            // Fecha Préstamo
+            page.drawText(new Date(prestamo.Fecha_prestamo).toLocaleDateString(), {
+                x: xPosition,
+                y: yPosition,
+                size: 9,
+                font: helveticaFont
+            });
+            xPosition += columnWidths[3];
+
+            // Fecha Devolución
+            page.drawText(new Date(prestamo.Fecha_devolucion_prevista).toLocaleDateString(), {
+                x: xPosition,
+                y: yPosition,
+                size: 9,
+                font: helveticaFont
+            });
+            xPosition += columnWidths[4];
+
+            // Estado
+            const colorEstado = prestamo.Estado === 'Pendiente' ? rgb(0.9, 0.3, 0.3) : rgb(0.2, 0.7, 0.2);
+            page.drawText(prestamo.Estado, {
+                x: xPosition,
+                y: yPosition,
+                size: 9,
+                font: helveticaFont,
+                color: colorEstado
+            });
+
+            yPosition -= 20;
+        });
+
+        // Generar el PDF
+        const pdfBytes = await pdfDoc.save();
+
+        // Enviar el PDF como respuesta
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename=informe-prestamos-${fechaActual}.pdf`);
+        res.send(Buffer.from(pdfBytes));
+
+    } catch (error) {
+        console.error('Error completo:', error);
+        handleHttp(res, 'ERROR_GENERAR_INFORME_PRESTAMOS');
+    }
+};
+
+export { generarRecibo, generarInformePrestamos };

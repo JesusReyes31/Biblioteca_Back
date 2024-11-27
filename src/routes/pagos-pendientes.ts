@@ -8,6 +8,6 @@ router.get('/',checkAuth,checkRole(['Admin','Admin Sucursal']),getPagosPendiente
 router.get('/:id',checkAuth,getPagoPendienteByIDVenta);
 router.post('/',checkAuth,checkRole(['Prestamos','Inventario','Cliente']),createPagoPendiente);
 // router.put('/:id',checkAuth,checkRole(['Prestamos','Inventario']),updatePagoPendiente);
-router.delete('/:id',checkAuth,checkRole(['Admin Sucursal','Prestamos']),deletePagoPendiente);
+router.delete('/:id/:codigo',checkAuth,checkRole(['Admin Sucursal','Prestamos']),deletePagoPendiente);
 
 export {router};    

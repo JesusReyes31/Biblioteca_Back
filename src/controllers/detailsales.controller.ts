@@ -1,11 +1,23 @@
 import { Request, Response } from "express"
 import { handleHttp } from "../utils/error.handle";
 import { Detail } from "../models/detailsales.model";
+import { Sequelize } from "sequelize";
+import { Book } from "../models/books.model";
 
 const getDetail = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const idSale = await Detail.findByPk(id);
+        const idSale = await Detail.findAll({
+            where: {
+                ID_Venta: parseInt(id)
+            },
+            attributes:['ID_Venta','ID_Libro','Cantidad','Precio',[Sequelize.col('Book.Titulo'),'Titulo'],[Sequelize.col('Book.Imagen'),'Imagen']],
+            include: [{
+                model: Book,
+                attributes: []
+            }],
+            raw: true,
+        });
         return idSale ? res.json(idSale) : res.status(404).json({ message: "No existe ese Detalle de Venta"});
     } catch (error) {
         handleHttp(res, 'ERROR_GET_DETAILSALE');

@@ -26,9 +26,9 @@ const getUsers = async (req: Request, res: Response) => {
 
         // Definir el mapeo de tipos de usuario
         const userTypeMapping: { [key: string]: string[] } = {
-            Admin: ['Admin Sucursal', 'Prestamos', 'Inventario', 'Cliente'],
+            Admin: ['Admin Sucursal'],
             'Admin Sucursal': ['Prestamos', 'Inventario', 'Cliente'],
-            Prestamos: ['Cliente', 'Inventario']
+            Prestamos: ['Cliente']
         };
 
         // Verificar si el tipo de usuario tiene permisos definidos
@@ -56,9 +56,9 @@ const getTypeUsers = async (req: Request, res: Response) => {
     try {
         const u = req.body.user.User;
         const userTypeMapping: { [key: string]: string[] } = {
-            Admin: ['Admin Sucursal', 'Prestamos', 'Inventario', 'Cliente'],
+            Admin: ['Admin Sucursal'],
             'Admin Sucursal': ['Prestamos', 'Inventario', 'Cliente'],
-            Prestamos: ['Cliente', 'Inventario']
+            Prestamos: ['Cliente']
         };
         
         const allowedTypes = userTypeMapping[u.Tipo_Usuario];

@@ -8,7 +8,7 @@ router.get('/:id',checkAuth,getDetail) //Ya que el usuario autenticado puede che
 router.post('/:id',checkAuth,postDetail)
 
 //Verificar en qué puntos se tomarían estos 2 endpoints
-router.put('/:id',putDetail)
-router.delete('/:id',deleteDetail)
+// router.put('/:id',putDetail)
+// router.delete('/:id',deleteDetail)
 
 export {router};

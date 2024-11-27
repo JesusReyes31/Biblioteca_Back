@@ -3,6 +3,7 @@ import { handleHttp } from "../utils/error.handle";
 import { Venta } from "../models/sales.model";
 import { user } from "../models/users.model";
 import { Sequelize } from "sequelize";
+import { Pago_Pendiente } from "../models/pagos_pendientes.model";
 // Obtener Ventas pendientes de entrega
 const getVentasPendientes = async (req: Request, res: Response) => {
     try {
@@ -20,7 +21,22 @@ const getVentasPendientes = async (req: Request, res: Response) => {
                     'Fecha_Venta'
                 ],
                 'Total',
-                'Entregado'],
+                'Entregado',
+                [
+                    Sequelize.literal(`(
+                        SELECT CASE 
+                            WHEN EXISTS (
+                                SELECT 1 
+                                FROM Pagos_Pendientes 
+                                WHERE Pagos_Pendientes.ID_Venta = Venta.ID_Venta
+                            ) 
+                            THEN 'SI' 
+                            ELSE 'NO' 
+                        END
+                    )`),
+                    'Pendiente'
+                ]
+            ],
             include: [
                 {
                     model: user,
@@ -28,8 +44,9 @@ const getVentasPendientes = async (req: Request, res: Response) => {
                 }
             ],
             order: [
-                ['Fecha_Venta', 'ASC'] // Ordenadas por fecha, las más antiguas primero
-            ]
+                ['Fecha_Venta', 'ASC']
+            ],
+            raw: true
         });
 
         if (!ventasPendientes.length) {
@@ -38,14 +55,14 @@ const getVentasPendientes = async (req: Request, res: Response) => {
                 data: []
             });
         }
-        console.log(ventasPendientes[0].dataValues)
+
         return res.status(200).json({
             message: "Ventas pendientes de entrega encontradas",
             data: ventasPendientes
         });
 
     } catch (error) {
-        console.log(error)
+        console.log(error);
         return res.status(500).json({
             message: "Error al obtener las ventas pendientes",
             error: error
@@ -57,7 +74,15 @@ const getVentasPendientes = async (req: Request, res: Response) => {
 const getSale = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const idSale = await Venta.findByPk(parseInt(id));
+        const idSale = await Venta.findByPk(parseInt(id),
+        {
+            attributes: ['ID_Venta','ID_Usuario','Cantidad','Total','Fecha_Venta','Entregado',[Sequelize.col('user.Nombre_Usuario'),'Nombre_Usuario']],
+            include: [{
+                model: user,
+                attributes: []
+            }],
+            raw: true
+        });
         return idSale ? res.json(idSale) : res.status(404).json({ message: "No existe esa Venta"});
     } catch (error) {
         handleHttp(res, 'ERROR_GET_SALE');
@@ -91,6 +116,8 @@ const getSalesID = async (req: Request, res: Response) => {
         handleHttp(res, 'ERROR_GET_SALESID');
     }
 }
+
+
 
 const postSale = async( req: Request, res:Response) => {
     try{

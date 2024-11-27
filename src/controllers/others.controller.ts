@@ -11,7 +11,7 @@ import { Reservas } from "../models/Reservas.model";
 import { Prestamos } from "../models/Prestamos.model";
 import { Venta } from "../models/sales.model";
 import { Sucursales } from "../models/sucursales.model";
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, PDFPage, rgb, StandardFonts } from 'pdf-lib';
 import * as XLSX from 'xlsx';
 import fs from 'fs';
 import bwipjs from 'bwip-js';
@@ -344,42 +344,59 @@ const credencial = async (req: Request, res: Response) => {
                     size: fontSizeText,
                     color: textColor,
                 });
+                const FIXED_WIDTH = 150;  // Ancho fijo en pixels
+                const FIXED_HEIGHT = 150; // Alto fijo en pixels
                 if (User.Imagen) {
                     try {
-                        // const decoded = jwt.verify(User.Imagen, process.env.JWT_SECRET || "secreto.01");
-                        // const imageUrl = decoded.toString();
-                        const response = await axios.get(User.Imagen, { responseType: 'arraybuffer' });
-                        console.log('Tipo de contenido:', response.headers['content-type']);
-                        
-                        const contentType = response.headers['content-type'];
-                        const imageBytes = Buffer.from(response.data);
-                        
-                        console.log('Primeros bytes de la imagen:', imageBytes.slice(0, 10));
-                        
-                        let image;
-                        if (contentType === 'image/jpeg') {
-                            image = await pdfDoc.embedJpg(imageBytes);
-                        } else if (contentType === 'image/png') {
-                            image = await pdfDoc.embedPng(imageBytes);
-                        } else {
-                            throw new Error('Tipo de imagen no soportado');
-                        }
-                        
-                        const { width, height } = image.scale(0.3); // Escalar la imagen al 50%
-                        console.log(`Imagen: width=${width}, height=${height}`);
-                        
-                        // Dibujar la imagen en el PDF
-                        page.drawImage(image, {
-                            x: 110,
-                            y: page.getHeight() - 330, // Posición vertical
-                            width,
-                            height,
+                        const response = await axios.get(User.Imagen, { 
+                            responseType: 'arraybuffer',
+                            headers: {
+                                'Accept': 'image/*',
+                                'Cache-Control': 'no-cache'
+                            }
                         });
+                        
+                        const imageBytes = Buffer.from(response.data);
+                        const contentType = response.headers['content-type']?.toLowerCase() || '';
+                        
+                        // Dimensiones fijas para todas las imágenes
+
+                        let image;
+                        try {
+                            // Primero convertimos cualquier formato a PNG con las dimensiones deseadas
+                            const sharp = require('sharp');
+                            const processedBuffer = await sharp(imageBytes)
+                                .resize(FIXED_WIDTH, FIXED_HEIGHT, {
+                                    fit: 'cover',     // Recorta la imagen para llenar las dimensiones
+                                    position: 'center' // Centra el recorte
+                                })
+                                .png()
+                                .toBuffer();
+
+                            // Embeber la imagen procesada en el PDF
+                            image = await pdfDoc.embedPng(processedBuffer);
+
+                            // Calcular la posición para centrar la imagen
+                            const xPosition = (page.getWidth() - FIXED_WIDTH) / 2;
+                            const yPosition = page.getHeight() - 330; // Ajusta esta posición según necesites
+
+                            // Dibujar la imagen con las dimensiones fijas
+                            page.drawImage(image, {
+                                x: xPosition,
+                                y: yPosition,
+                                width: FIXED_WIDTH,
+                                height: FIXED_HEIGHT
+                            });
+
+                        } catch (embedError) {
+                            console.error('Error al procesar la imagen:', embedError);
+                            await cargarImagenPorDefecto(pdfDoc, page, FIXED_WIDTH, FIXED_HEIGHT);
+                        }
                     } catch (error) {
                         console.error('Error al cargar la imagen:', error);
-                        // Puedes decidir cómo manejar este error (ej., enviando un mensaje en el PDF)
+                        await cargarImagenPorDefecto(pdfDoc, page, FIXED_WIDTH, FIXED_HEIGHT);
                     }
-                }               
+                }
                 // Insertar código de barras
                 const barcodeOptions = { bcid: 'code128', text: id.toString() };
                 // Convertir el código de barras a una imagen
@@ -409,6 +426,43 @@ const credencial = async (req: Request, res: Response) => {
     } catch (err) {
         console.error('Error al generar la credencial:', err);
         res.status(500).send('Error interno del servidor');
+    }
+}
+
+// Función auxiliar para cargar imagen por defecto con dimensiones fijas
+async function cargarImagenPorDefecto(
+    pdfDoc: PDFDocument, 
+    page: PDFPage, 
+    width: number, 
+    height: number
+) {
+    try {
+        const defaultImagePath = './assets/default-profile.png';
+        if (fs.existsSync(defaultImagePath)) {
+            const sharp = require('sharp');
+            const processedBuffer = await sharp(defaultImagePath)
+                .resize(width, height, {
+                    fit: 'cover',
+                    position: 'center'
+                })
+                .png()
+                .toBuffer();
+
+            const defaultImage = await pdfDoc.embedPng(processedBuffer);
+            
+            // Centrar la imagen
+            const xPosition = (page.getWidth() - width) / 2;
+            const yPosition = page.getHeight() - 330;
+
+            page.drawImage(defaultImage, {
+                x: xPosition,
+                y: yPosition,
+                width,
+                height
+            });
+        }
+    } catch (defaultError) {
+        console.error('Error al cargar imagen por defecto:', defaultError);
     }
 }
 

@@ -1,9 +1,10 @@
-import  { Router,Request, Response } from "express";
-import {checkAuth, checkRole} from "../middleware/session";
-import { generarRecibo } from "../controllers/doctos.controller";
+import { Router } from "express";
+import { generarRecibo, generarInformePrestamos } from "../controllers/doctos.controller";
+import { checkAuth, checkRole } from "../middleware/session";
 
 const router = Router();
 
-router.get("/recibo/:id",checkAuth,generarRecibo);
+router.get("/recibo/:id", checkAuth, generarRecibo);
+router.get("/prestamos", checkAuth, checkRole(['Admin Sucursal']), generarInformePrestamos);
 
-export {router};
+export { router };

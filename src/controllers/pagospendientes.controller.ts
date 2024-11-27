@@ -50,8 +50,8 @@ const updatePagoPendiente = async (req: Request, res: Response) => {
 //Eliminar un pago pendiente    
 const deletePagoPendiente = async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
-        await Pago_Pendiente.destroy({ where: { ID: parseInt(id) } });
+        const { id, codigo } = req.params;
+        await Pago_Pendiente.destroy({ where: { ID_Venta: parseInt(id), Codigo: codigo } });
         res.status(200).json({ message: 'Pago pendiente eliminado correctamente' });
     } catch (error) {
         handleHttp(res, 'ERROR_DELETE_PAGO_PENDIENTE', error);
