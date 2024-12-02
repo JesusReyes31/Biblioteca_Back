@@ -16,6 +16,7 @@ import * as XLSX from 'xlsx';
 import fs from 'fs';
 import bwipjs from 'bwip-js';
 import axios from 'axios';
+import { Ejemplares } from "../models/ejemplares.model";
 
 //Otros endpoints de libros que se utilizan
 const getGenres = async (req: Request, res: Response) => {
@@ -36,18 +37,28 @@ const getGenres = async (req: Request, res: Response) => {
 }
 const getBooksByGenre = async (req: Request, res: Response) => {
     try {
-        // Obtener el parámetro del género desde req.params
         const { genre } = req.params;
-        // Consulta para obtener todos los libros que coincidan con el género
+        
         const books = await Book.findAll({
             where: {
-                Genero: genre // Filtrar libros por el género recibido
-            }
+                Genero: genre
+            },
+            include: [{
+                model: Ejemplares,
+                attributes: ['Cantidad', 'ID_Sucursal','ID'],
+                include: [{
+                    model: Sucursales,
+                    as: 'Sucursales',
+                    attributes: ['Nombre']
+                }]
+            }]
         });
+
         if (!books || books.length === 0) {
             return res.status(404).json({ message: `No se encontraron libros del género ${genre}` });
         }
-        res.json(books); // Retorna los libros encontrados
+
+        res.json(books);
     } catch (error) {
         handleHttp(res, 'ERROR_GET_BOOKS_BY_GENRE', error);
     }
@@ -81,7 +92,7 @@ const search = async (req: Request, res: Response) => {
                 ]
             }
         });
-        console.log(busqueda)
+        // console.log(busqueda)
         // Verificar si se encontraron resultados
         if (busqueda.length > 0) {
             res.json(busqueda);
@@ -96,7 +107,7 @@ const search = async (req: Request, res: Response) => {
 const resetpassword = async (req: Request, res: Response) => {
     const { newPassword } = req.body;
     const token = req.headers.authorization;
-    console.log('Entró')
+    // console.log('Entró')
     try {
         if (!token) {
             return res.status(401).json({ message: 'No se proporcionó el token' });
@@ -124,87 +135,109 @@ const resetpassword = async (req: Request, res: Response) => {
 };
 
 //Envío de correo utilizando nodemailer, se envia el link con un token de acceso para poder cambiar contraseña que se guarda en la BD
-const nodemail = async (req:Request,res:Response) => {
-    const {Correo} = req.body;
-    console.log(Correo)
-    let usuario;
-    if(!Correo){
-        const {Nombre_Usuario} = req.body;
-        console.log(Nombre_Usuario)
-        usuario = await user.findOne({ where: { Nombre_Usuario:Nombre_Usuario } });
-    }else{
-        usuario = await user.findOne({ where: { Correo:Correo } });
-    }
-    if (!usuario) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
-    }
-    console.log(usuario?.dataValues)
-    // Eliminar cualquier token existente para el usuario antes de generar uno nuevo
+const nodemail = async (req: Request, res: Response) => {
     try {
-        const deletedTokens = await Tokens.destroy({ where: { ID_Usuario: usuario.ID } });
-        if (deletedTokens > 0) {
-            console.log('Token anterior eliminado');
-        } else {
-            console.log('No se encontró un token previo para eliminar');
+        const { Mail, Tipo } = req.body;
+        let usuario;
+        console.log('Mail: ',Mail)
+        console.log('Tipo: ',Tipo)
+        // Validar datos de entrada
+        if (!Mail || !Tipo) {
+            return res.status(400).json({ 
+                message: 'Datos incompletos' 
+            });
         }
-    } catch (err) {
-        console.error('Error al eliminar el token existente:', err);
-    }
-    let transporter = nodemailer.createTransport({
-        service: 'Gmail',
-        auth: {
-            user: process.env.CORREO, 
-            pass: process.env.PASSC
-    }
-    });
-    // Generar un token con el ID del usuario y una expiración de 1 hora
-    const resetToken = jwt.sign(
-        { User: usuario },
-        process.env.JWT_SECRET as string, // Llave secreta para JWT
-        { expiresIn: '1h' } // El token expirará en 1 hora
-    );
-    
-    // Generar un enlace de restablecimiento de contraseña con el token
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
-    const resetLink = `${frontendUrl}/reset-password/${resetToken}`;
-    console.log(`Enlace para restablecer contraseña: ${resetLink}`);
-    let mailOptions = {
-        from: process.env.CORREO, // Remitente
-        to: usuario?.dataValues.Correo, // Destinatario
-        subject: 'Reestablecer Contraseña Biblioteca',
-        html: `<h2>Para reestablecer tu contraseña entra al siguiente enlace:</h2>
-            <a href='${resetLink}'>REESTABLECER CONTRASEÑA</a>`
-    };
-    try{
-        transporter.sendMail(mailOptions, async (error: Error | null, info: SentMessageInfo) =>{
-            if (error) {
-                console.log('no se pudo: ',error)
-                res.json({ message: 'Envio incorrecto, verifique el correo ingresado' });
-                return console.log(error);
+
+        // Buscar usuario
+        if (Tipo == 'Correo') {
+            usuario = await user.findOne({ where: { Correo: Mail } });
+        } else {
+            usuario = await user.findOne({ where: { Nombre_Usuario: Mail } });
+        }
+
+        if (!usuario) {
+            return res.status(404).json({ 
+                message: 'Usuario no encontrado' 
+            });
+        }
+
+        // Eliminar tokens existentes
+        await Tokens.destroy({ where: { ID_Usuario: usuario.ID } });
+
+        // Configurar transporter
+        let transporter = nodemailer.createTransport({
+            service: 'Gmail',
+            auth: {
+                user: process.env.CORREO,
+                pass: process.env.PASSC
             }
-            console.log('Correo enviado: ' + info.response);
-            const newToken = await Tokens.create({ID_Usuario:usuario.ID,Token:resetToken});
-            setTimeout(async () => {
-                try {
-                    const rowsAffected = await Tokens.destroy({
-                        where: {
-                            ID_Usuario: usuario.ID,
-                            Token: resetToken
-                        }
-                    });
-                    if (rowsAffected > 0) {
-                        console.log('Token eliminado después de 1 hora.');
-                    } else {
-                        console.log('El token ya fue eliminado o no existe.');
-                    }
-                } catch (err) {
-                    console.error('Error al eliminar el token:', err);
-                }
-            }, 3600000);
-            res.json('Correo enviado: ');
         });
-    }catch(err){ console.log(err)}
-}
+
+        // Generar token
+        const resetToken = jwt.sign(
+            { User: usuario },
+            process.env.JWT_SECRET as string,
+            { expiresIn: '1h' }
+        );
+
+        // Generar enlace
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
+        const resetLink = `${frontendUrl}/reset-password/${resetToken}`;
+
+        // Configurar email
+        let mailOptions = {
+            from: process.env.CORREO,
+            to: usuario.dataValues.Correo,
+            subject: 'Reestablecer Contraseña Biblioteca',
+            html: `<h2>Para reestablecer tu contraseña entra al siguiente enlace:</h2>
+                   <a href='${resetLink}'>REESTABLECER CONTRASEÑA</a>`
+        };
+
+        // Enviar email
+        await new Promise((resolve, reject) => {
+            transporter.sendMail(mailOptions, async (error, info) => {
+                if (error) {
+                    reject(error);
+                    return;
+                }
+                
+                try {
+                    // Guardar token
+                    await Tokens.create({
+                        ID_Usuario: usuario.ID,
+                        Token: resetToken
+                    });
+
+                    // Programar eliminación del token
+                    setTimeout(async () => {
+                        await Tokens.destroy({
+                            where: {
+                                ID_Usuario: usuario.ID,
+                                Token: resetToken
+                            }
+                        });
+                    }, 3600000);
+
+                    resolve(info);
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        });
+
+        // Respuesta exitosa
+        return res.status(200).json({
+            success: true,
+            message: 'Correo enviado exitosamente'
+        });
+
+    } catch (error) {
+        console.error('Error en nodemail:', error);
+        return res.status(500).json({
+            message: 'Error al procesar la solicitud'
+        });
+    }
+};
 
 //Verificar el token enviado, para ver si se puede mostrar la pagina de reset-password
 const verify_token = async (req:Request,res:Response) => {
@@ -244,7 +277,7 @@ const prinAdminSuc = async (req:Request,res:Response) => {
             Venta.count({ where: { Entregado: 'No' } }) //Cuentas de Ventas sin entregar
         ]);
         const adminCounts = { clientes: clientesCount, inventario: inventarioCount, prestamos: prestamosCount, totalLibros: totalBooksCount, generos: distinctGenerosCount, reservas: reservasCount, prestamosTotal: prestamosTotalCount, prestamosPendientes: prestamosPendientesCount, totalVentas: totalVentasCount, ventasNoEntregadas: ventasNoEntregadasCount};
-        console.log(adminCounts)
+        // console.log(adminCounts)
         res.json(adminCounts);
     } catch (err) {
         console.error('Error al ejecutar la consulta SQL:', err);
@@ -256,14 +289,14 @@ const prinAdminSuc = async (req:Request,res:Response) => {
 const prinAdmin = async (req:Request,res:Response) => {
     try {
         const [sucs,adminsSucs,clientes,inventario,prestamos,libros] = await Promise.all([
-            Sucursales.count(),
+            Sucursales.count(),//Cuenta de Sucursales
             user.count({ where: { Tipo_Usuario: 'Admin Sucursal' } }),//Usuarios tipo cliente
             user.count({ where: { Tipo_Usuario: 'Cliente' } }),//Usuarios tipo cliente
             user.count({ where: { Tipo_Usuario: 'Inventario' } }),//Usuarios tipo Inventario
             user.count({ where: { Tipo_Usuario: 'Prestamos' } }),//Usuarios tipo Prestamos
             Book.count(), //Cuenta de Libros
         ]);
-        const adminCounts = {Sucursales:sucs,Administradores_Sucursales:adminsSucs,Clientes:clientes,Personal_Inventario:inventario,Personal_Prestamo:prestamos,Libros:libros };
+        const adminCounts = {Sucursales:sucs,Administradores_Sucursales:adminsSucs,Clientes:clientes,Personal_Inventario:inventario,Personal_Prestamo:prestamos,Libros:libros};
         // console.log(adminCounts)
         res.json(adminCounts);
     } catch (err) {
@@ -275,8 +308,28 @@ const prinAdmin = async (req:Request,res:Response) => {
 //Consulta para inicio del Cliente, Inventario y Prestamos
 const prinGen = async (req:Request,res:Response) => {
     try {
-        //Consulta un aleatorio de 4 libros disponibles cambiantes
-        const libros = await Book.findAll({ where: { Disponibilidad: 'Disponible' }, order: Sequelize.literal('NEWID()'), limit: 4 });
+        // Consulta para obtener exactamente 4 registros aleatorios
+        const libros = await Book.findAll({
+            include: [{
+                model: Ejemplares,
+                attributes: ['Cantidad', 'ID_Sucursal','ID'],
+                include: [{
+                    model: Sucursales,
+                    as: 'Sucursales',
+                    attributes: ['Nombre']
+                }]
+            }],
+            order: Sequelize.literal('NEWID()'), 
+            limit: 4,
+        });
+        // console.log(libros)
+        // Verificar que se obtuvieron exactamente 4 registros
+        if (libros.length !== 4) {
+            return res.status(400).json({ 
+                message: 'No se pudieron obtener 4 ejemplares aleatorios' 
+            });
+        }
+
         res.json(libros);
     } catch (err) {
         console.error('Error al ejecutar la consulta SQL:', err);
@@ -289,7 +342,7 @@ const credencial = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const {Nombre} = req.body;
-        console.log(id,Nombre)
+        // console.log(id,Nombre)
         // Consulta a la base de datos usando Sequelize
         const User = await user.findOne({ where: { ID: parseInt(id), Nombre_Usuario: Nombre } });
         if (User) {
@@ -469,7 +522,7 @@ async function cargarImagenPorDefecto(
 const reportes = async (req:Request,res:Response) => {
     const { fechain, fechaf, genero, ID_Usuario } = req.body;
     const { reporte } = req.params;
-    console.log("Reporte:", reporte, "Fecha In:", fechain, "FechaF:", fechaf, "Genero:", genero, "ID:", ID_Usuario);
+    // console.log("Reporte:", reporte, "Fecha In:", fechain, "FechaF:", fechaf, "Genero:", genero, "ID:", ID_Usuario);
 
     try {
         let nombre: string;
@@ -594,7 +647,7 @@ const reportes = async (req:Request,res:Response) => {
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Datos');
         XLSX.writeFile(workbook, nombre);
 
-        console.log('Archivo Excel creado exitosamente');
+        // console.log('Archivo Excel creado exitosamente');
         res.download(nombre, nombre, (err) => {
             if (err) {
                 console.error('Error al descargar el archivo:', err);

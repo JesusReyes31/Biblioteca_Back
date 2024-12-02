@@ -7,7 +7,7 @@ router.get('/articulo/:id',checkAuth,checkRole(['Inventario','Prestamos','Client
 router.get('/:id',checkAuth,checkRole(['Inventario','Prestamos','Cliente']),getCarts) // Obtener todos los artículos del carrito
 router.post('/',checkAuth,checkRole(['Inventario','Prestamos','Cliente']),addToCart) // Agregar un artículo al carrito
 router.put('/:id',checkAuth,checkRole(['Inventario','Prestamos','Cliente']),updateCart) // Actualizar la cantidad de un artículo en el carrito
-router.delete('/one/:id/:libro',checkAuth,checkRole(['Inventario','Prestamos','Cliente']),deleteFromCart) // Eliminar un artículo del carrito  
+router.delete('/:id',checkAuth,checkRole(['Inventario','Prestamos','Cliente']),deleteFromCart) // Eliminar un artículo del carrito  
 router.delete('/all/:id',checkAuth,checkRole(['Inventario','Prestamos','Cliente']),deleteAllCart) // Eliminar todos los artículos del carrito
 
 export {router};

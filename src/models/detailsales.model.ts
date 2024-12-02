@@ -5,7 +5,7 @@ import { sequelize } from '../config/sql';
 interface DetailAttributes {
     ID_Detalle: number;
     ID_Venta: number;
-    ID_Libro: string;
+    ID_Ejemplar: number;
     Cantidad: number;
     Precio: number;
 }
@@ -17,7 +17,7 @@ interface DetailCreationAttributes extends Optional<DetailAttributes, 'ID_Detall
 class Detail extends Model<DetailAttributes, DetailCreationAttributes> implements DetailAttributes {
     public ID_Detalle!: number;
     public ID_Venta!: number;
-    public ID_Libro!: string;
+    public ID_Ejemplar!: number;
     public Cantidad!: number;
     public Precio!: number;
 }
@@ -31,10 +31,10 @@ Detail.init({
     },
     ID_Venta: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: false,
     },
-    ID_Libro: {
-        type: DataTypes.STRING,
+    ID_Ejemplar: {
+        type: DataTypes.INTEGER,
         allowNull: false
     },
     Cantidad: {

@@ -8,6 +8,9 @@ import { Sequelize } from "sequelize";
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import fs from 'fs';
 import { Prestamos } from "../models/Prestamos.model";
+import { Ejemplares } from "../models/ejemplares.model";
+import { Sucursales } from "../models/sucursales.model";
+import { Op } from 'sequelize';
 
 const generarRecibo = async (req: Request, res: Response) => {
     try {
@@ -40,13 +43,18 @@ const generarRecibo = async (req: Request, res: Response) => {
             where: { ID_Venta: parseInt(id) },
             attributes: [
                 'Cantidad',
-                [Sequelize.col('Book.Titulo'), 'titulo_libro'],
-                [Sequelize.col('Book.Precio'), 'precio']
+                [Sequelize.col('Ejemplar.Book.Titulo'), 'Titulo'],
+                [Sequelize.col('Ejemplar.Precio'), 'Precio']
             ],
             include: [
                 {
-                    model: Book,
-                    attributes: []
+                    model: Ejemplares,
+                    as:'Ejemplar',
+                    attributes: [],
+                    include: [{
+                        model: Book,
+                        attributes: []
+                    }]
                 }
             ],
             raw: true
@@ -136,9 +144,9 @@ const generarRecibo = async (req: Request, res: Response) => {
         // Detalles de productos
         detallesVenta.forEach(detalle => {
             xPosition = margin;
-            const subtotal = detalle.Cantidad * detalle.precio;
+            const subtotal = detalle.Cantidad * detalle.Precio;
 
-            page.drawText(detalle.titulo_libro, {
+            page.drawText(detalle.Titulo, {
                 x: xPosition,
                 y: yPosition,
                 size: 10,
@@ -154,7 +162,7 @@ const generarRecibo = async (req: Request, res: Response) => {
             });
             xPosition += columnWidths[1];
 
-            page.drawText(`$${detalle.precio.toFixed(2)}`, {
+            page.drawText(`$${detalle.Precio.toFixed(2)}`, {
                 x: xPosition,
                 y: yPosition,
                 size: 10,
@@ -234,17 +242,25 @@ const generarRecibo = async (req: Request, res: Response) => {
     }
 };
 
+const generarFactura = async (req: Request, res: Response) => {
+    
+}
+
 const generarInformePrestamos = async (req: Request, res: Response) => {
     try {
         // Obtener todos los préstamos con información relacionada
         const prestamos: any[] = await Prestamos.findAll({
+            where: {
+                '$Ejemplar.ID_Sucursal$': req.body.user.User.ID_Sucursal
+            },
             attributes: [
                 'ID_Prestamo',
                 'Fecha_prestamo',
                 'Fecha_devolucion_prevista',
                 'Estado',
                 [Sequelize.col('user.Nombre_Usuario'), 'nombre_usuario'],
-                [Sequelize.col('Book.Titulo'), 'titulo_libro']
+                [Sequelize.col('Ejemplar.Book.Titulo'), 'titulo_libro'],
+                [Sequelize.col('Ejemplar.Sucursales.Nombre'), 'sucursal']
             ],
             include: [
                 {
@@ -252,8 +268,20 @@ const generarInformePrestamos = async (req: Request, res: Response) => {
                     attributes: []
                 },
                 {
-                    model: Book,
-                    attributes: []
+                    model: Ejemplares,
+                    as: 'Ejemplar',
+                    attributes: [],
+                    include: [
+                        {
+                            model: Book,
+                            attributes: []
+                        },
+                        {
+                            model: Sucursales,
+                            as: 'Sucursales',
+                            attributes: []
+                        }
+                    ]
                 }
             ],
             raw: true
@@ -326,8 +354,8 @@ const generarInformePrestamos = async (req: Request, res: Response) => {
         yPosition -= 40;
 
         // Tabla de préstamos
-        const tableHeaders = ['ID', 'Usuario', 'Libro', 'Fecha Préstamo', 'Fecha Devolución', 'Estado'];
-        const columnWidths = [50, 100, 150, 100, 100, 80];
+        const tableHeaders = ['ID', 'Usuario', 'Libro', 'Sucursal', 'Fecha Préstamo', 'Fecha Devolución', 'Estado'];
+        const columnWidths = [40, 80, 120, 80, 90, 90, 80];
         let xPosition = margin;
 
         // Encabezados de la tabla
@@ -379,6 +407,15 @@ const generarInformePrestamos = async (req: Request, res: Response) => {
             });
             xPosition += columnWidths[2];
 
+            // Sucursal
+            page.drawText(prestamo.sucursal, {
+                x: xPosition,
+                y: yPosition,
+                size: 9,
+                font: helveticaFont
+            });
+            xPosition += columnWidths[3];
+
             // Fecha Préstamo
             page.drawText(new Date(prestamo.Fecha_prestamo).toLocaleDateString(), {
                 x: xPosition,
@@ -386,7 +423,7 @@ const generarInformePrestamos = async (req: Request, res: Response) => {
                 size: 9,
                 font: helveticaFont
             });
-            xPosition += columnWidths[3];
+            xPosition += columnWidths[4];
 
             // Fecha Devolución
             page.drawText(new Date(prestamo.Fecha_devolucion_prevista).toLocaleDateString(), {
@@ -395,7 +432,7 @@ const generarInformePrestamos = async (req: Request, res: Response) => {
                 size: 9,
                 font: helveticaFont
             });
-            xPosition += columnWidths[4];
+            xPosition += columnWidths[5];
 
             // Estado
             const colorEstado = prestamo.Estado === 'Pendiente' ? rgb(0.9, 0.3, 0.3) : rgb(0.2, 0.7, 0.2);
@@ -424,4 +461,270 @@ const generarInformePrestamos = async (req: Request, res: Response) => {
     }
 };
 
-export { generarRecibo, generarInformePrestamos };
+const generarReporte = async (req: Request, res: Response) => {
+    try {
+        const { tipo, fechaInicio, fechaFin } = req.body;
+        let data: any[] = [];
+        console.log(tipo, fechaInicio, fechaFin);
+        // Consultas según el tipo de reporte
+        switch (tipo) {
+            case 'inventario':
+                data = await Ejemplares.findAll({
+                    attributes: [
+                        [Sequelize.col('Book.Titulo'), 'Titulo'],
+                        [Sequelize.col('Book.Autor'), 'Autor'],
+                        [Sequelize.col('Book.ISBN'), 'ISBN'],
+                        [Sequelize.col('Sucursales.Nombre'), 'Sucursal'],
+                        'Cantidad',
+                        'Precio'
+                    ],
+                    include: [
+                        {
+                            model: Book,
+                            attributes: []
+                        },
+                        {
+                            model: Sucursales,
+                            as: 'Sucursales',
+                            attributes: []
+                        }
+                    ],
+                    raw: true
+                });
+                break;
+
+            case 'libros-genero':
+                data = await Book.findAll({
+                    attributes: [
+                        'Titulo',
+                        'Autor',
+                        'Genero',
+                        [Sequelize.fn('COUNT', Sequelize.col('Ejemplares.ID')), 'Total_Ejemplares']
+                    ],
+                    include: [{
+                        model: Ejemplares,
+                        attributes: []
+                    }],
+                    group: ['Book.ID', 'Book.Titulo', 'Book.Autor', 'Book.Genero'],
+                    raw: true
+                });
+                break;
+
+            case 'prestamos-usuario':
+                data = await Prestamos.findAll({
+                    where: {
+                        Fecha_prestamo: {
+                            [Op.between]: [fechaInicio, fechaFin]
+                        }
+                    },
+                    attributes: [
+                        [Sequelize.col('user.Nombre_Usuario'), 'Usuario'],
+                        [Sequelize.col('Ejemplar.Book.Titulo'), 'Libro'],
+                        'Fecha_prestamo',
+                        'Fecha_devolucion_prevista',
+                        'Estado'
+                    ],
+                    include: [
+                        {
+                            model: user,
+                            attributes: []
+                        },
+                        {
+                            model: Ejemplares,
+                            as: 'Ejemplar',
+                            attributes: [],
+                            include: [{
+                                model: Book,
+                                attributes: []
+                            }]
+                        }
+                    ],
+                    raw: true
+                });
+                break;
+
+            case 'prestamos-genero':
+                data = await Prestamos.findAll({
+                    where: {
+                        Fecha_prestamo: {
+                            [Op.between]: [fechaInicio, fechaFin]
+                        }
+                    },
+                    attributes: [
+                        [Sequelize.col('Ejemplar.Book.Genero'), 'Genero'],
+                        [Sequelize.fn('COUNT', Sequelize.col('Prestamos.ID_Prestamo')), 'Total_Prestamos']
+                    ],
+                    include: [{
+                        model: Ejemplares,
+                        as: 'Ejemplar',
+                        attributes: [],
+                        include: [{
+                            model: Book,
+                            attributes: []
+                        }]
+                    }],
+                    group: ['Ejemplar.Book.Genero'],
+                    raw: true
+                });
+                break;
+
+            case 'pendientes':
+                data = await Prestamos.findAll({
+                    where: {
+                        Estado: 'Pendiente',
+                        Fecha_prestamo: {
+                            [Op.between]: [fechaInicio, fechaFin]
+                        }
+                    },
+                    attributes: [
+                        [Sequelize.col('user.Nombre_Usuario'), 'Usuario'],
+                        [Sequelize.col('Ejemplar.Book.Titulo'), 'Libro'],
+                        'Fecha_prestamo',
+                        'Fecha_devolucion_prevista'
+                    ],
+                    include: [
+                        {
+                            model: user,
+                            attributes: []
+                        },
+                        {
+                            model: Ejemplares,
+                            as: 'Ejemplar',
+                            attributes: [],
+                            include: [{
+                                model: Book,
+                                attributes: []
+                            }]
+                        }
+                    ],
+                    raw: true
+                });
+                break;
+
+            case 'ventas':
+                data = await Venta.findAll({
+                    where: {
+                        Fecha_Venta: {
+                            [Op.between]: [fechaInicio, fechaFin]
+                        }
+                    },
+                    attributes: [
+                        'ID_Venta',
+                        'Fecha_Venta',
+                        'Total',
+                        [Sequelize.col('user.Nombre_Usuario'), 'Cliente']
+                    ],
+                    include: [
+                        {
+                            model: user,
+                            attributes: []
+                        },
+                        {
+                            model: Detail,
+                            attributes: ['Cantidad', 'Precio'],
+                            include: [{
+                                model: Ejemplares,
+                                as: 'Ejemplar',
+                                attributes: [],
+                                include: [{
+                                    model: Book,
+                                    attributes: ['Titulo', 'Autor', 'ISBN']
+                                }]
+                            }]
+                        }
+                    ],
+                    raw: true
+                });
+                break;
+
+            default:
+                return res.status(400).json({ message: 'Tipo de reporte no válido' });
+        }
+
+        // Generar PDF con los datos
+        const pdfDoc = await PDFDocument.create();
+        let page:any = pdfDoc.addPage([600, 800]);
+        const { width, height } = page.getSize();
+        const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+        // Título del reporte
+        page.drawText(`Reporte: ${tipo.toUpperCase()}`, {
+            x: 50,
+            y: height - 50,
+            size: 20,
+            font: helveticaBold
+        });
+
+        // Fecha de generación
+        const fechaGeneracion = new Date().toLocaleDateString();
+        page.drawText(`Fecha de generación: ${fechaGeneracion}`, {
+            x: 50,
+            y: height - 80,
+            size: 12,
+            font: helveticaFont
+        });
+
+        // Contenido del reporte (adaptar según el tipo)
+        let yPosition = height - 120;
+        const margin = 50;
+        const lineHeight = 20;
+
+        // Función auxiliar para limpiar texto
+        const limpiarTexto = (texto: any): string => {
+            if (texto === null || texto === undefined) return '';
+            // Convertir a string y eliminar caracteres especiales
+            return String(texto)
+                .replace(/[\u200B-\u200F\uFEFF]/g, '') // Elimina caracteres de formato invisible
+                .replace(/[^\x20-\x7E\xA0-\xFF]/g, '') // Mantiene solo caracteres imprimibles básicos
+                .trim();
+        };
+
+        data.forEach((item, index) => {
+            if (yPosition < margin + 50) {
+                const newPage = pdfDoc.addPage([600, 800]);
+                yPosition = height - margin;
+                page = newPage;
+            }
+
+            Object.entries(item).forEach(([key, value]) => {
+                try {
+                    const textoLimpio = `${limpiarTexto(key)}: ${limpiarTexto(value)}`;
+                    
+                    // Verificar si hay suficiente espacio en la página
+                    if (yPosition < margin + 50) {
+                        const newPage = pdfDoc.addPage([600, 800]);
+                        yPosition = height - margin;
+                        page = newPage;
+                    }
+
+                    page.drawText(textoLimpio, {
+                        x: margin,
+                        y: yPosition,
+                        size: 10,
+                        font: helveticaFont,
+                        lineHeight: lineHeight
+                    });
+                    
+                    yPosition -= lineHeight;
+                } catch (error) {
+                    console.warn(`Error al procesar campo ${key}:`, error);
+                    // Continuar con el siguiente campo
+                }
+            });
+            yPosition -= 10; // Espacio entre registros
+        });
+
+        const pdfBytes = await pdfDoc.save();
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename=reporte-${tipo}-${fechaGeneracion}.pdf`);
+        res.send(Buffer.from(pdfBytes));
+
+    } catch (error) {
+        console.log('Error al generar reporte:', error);
+        handleHttp(res, 'ERROR_GENERAR_REPORTE');
+    }
+};
+
+export { generarRecibo, generarInformePrestamos, generarReporte };

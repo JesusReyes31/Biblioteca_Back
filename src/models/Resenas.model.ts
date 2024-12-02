@@ -32,12 +32,12 @@ Resenas.init({
         primaryKey: true
     },
     ID_Libro: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(100),
         allowNull: false
     },
     ID_Usuario: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: false,
     },
     Calificacion: {
         type: DataTypes.FLOAT,

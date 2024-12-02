@@ -1,48 +1,48 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../config/sql';
 
-// Definición de los atributos del usuario
+// Definición de los atributos del carrito
 interface CarritoAttributes {
     ID: number;
-    ID_Usuario:number;
-    ID_Libro: string;
+    ID_Usuario: number;
+    ID_Ejemplar: number;
     Cantidad: number; 
 }
 
-// Atributos opcionales para la creación de un usuario
+// Atributos opcionales para la creación
 interface CarritoCreationAttributes extends Optional<CarritoAttributes, 'ID'> {}
 
 // Definición de la clase de modelo
 class Carrito extends Model<CarritoAttributes, CarritoCreationAttributes> implements CarritoAttributes {
     public ID!: number;
-    public ID_Usuario!:number;
-    public ID_Libro!: string;
+    public ID_Usuario!: number;
+    public ID_Ejemplar!: number;
     public Cantidad!: number;
 }
 
 // Inicialización del modelo
 Carrito.init({
     ID: {
-        type: DataTypes.INTEGER, // Cambiado a STRING si el ID del libro es un texto
+        type: DataTypes.INTEGER,
         autoIncrement: true,
         primaryKey: true
     },
     ID_Usuario: {
-        type: DataTypes.INTEGER, // Cambiado a STRING si el ID del libro es un texto
-        allowNull: false
+        type: DataTypes.INTEGER,
+        allowNull: false,
     },
-    ID_Libro: {
-        type: DataTypes.STRING, // Cambiado a STRING si el ID del libro es un texto
+    ID_Ejemplar: {
+        type: DataTypes.INTEGER,
         allowNull: false
     },
     Cantidad: {
         type: DataTypes.INTEGER,
         allowNull: false
-    },
+    }
 }, {
     sequelize,
-    tableName: 'Carrito', // Cambiado a 'Libros' si es la tabla correspondiente
-    timestamps: false,
+    tableName: 'Carrito',
+    timestamps: false
 });
 
 export { Carrito };

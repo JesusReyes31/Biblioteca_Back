@@ -5,6 +5,10 @@ import { Prestamos } from "../models/Prestamos.model";
 import { user } from "../models/users.model";
 import { Op, Sequelize } from "sequelize";
 import { sendReminderEmail } from "./email.handle";
+import { Notificacion } from "../models/notificaciones.model";
+import { Reservas } from "../models/Reservas.model";
+import { Ejemplares } from "../models/ejemplares.model";
+import { Sucursales } from "../models/sucursales.model";
 
 export const cleanupExpiredTokens = async () => {
     try {
@@ -57,9 +61,100 @@ export const checkPrestamosVencimiento = async () => {
             };
             // console.log(correo)
             await sendReminderEmail(correo);
+            // Crear notificación
+            await Notificacion.create({
+                ID_Usuario: prestamo.ID_Usuario,
+                Mensaje: `Tu préstamo del libro "${prestamo.Titulo}" vence en ${diasRestantes} días`,
+                Tipo: 'Prestamo',
+                Fecha: new Date(),
+                Leido: false // Agregado el campo requerido
+            });
         }
     } catch (error) {
         console.error('Error al verificar préstamos por vencer:', error);
+    }
+};
+
+export const checkReservasVencimiento = async () => {
+    try {
+        const reservasProximasVencer: any = await Reservas.findAll({
+            where: {
+                Fecha_recoger: {
+                    [Op.and]: [
+                        { [Op.gt]: new Date() }, // Fecha futura
+                        { 
+                            [Op.lte]: Sequelize.literal("DATEADD(hour, 24, GETDATE())") 
+                        } // Próximas 24 horas
+                    ]
+                },
+            },
+            attributes: [
+                'ID_Reserva',
+                'ID_Usuario',
+                'Fecha_recoger',
+                [Sequelize.col('Ejemplar.Book.Titulo'), 'Titulo'],
+                [Sequelize.col('Ejemplar.Sucursales.Nombre'), 'Sucursal']
+            ],
+            include: [{
+                model: Ejemplares,
+                as: 'Ejemplar',
+                attributes: [],
+                include: [{
+                    model: Book,
+                    attributes: []
+                },
+                {
+                    model: Sucursales,
+                    as: 'Sucursales',
+                    attributes: []
+                }]
+            }],
+            raw: true
+        });
+
+        for (const reserva of reservasProximasVencer) {
+            const horasRestantes = Math.ceil(
+                (new Date(reserva.Fecha_recoger).getTime() - new Date().getTime()) 
+                / (1000 * 60 * 60)
+            );
+
+            // Personalizar mensaje según las horas restantes
+            let mensaje;
+            if (horasRestantes <= 1) {
+                mensaje = `¡URGENTE! Tu reserva del libro "${reserva.Titulo}" en la sucursal ${reserva.Sucursal} vence en menos de una hora`;
+            } else if (horasRestantes <= 3) {
+                mensaje = `¡Importante! Tu reserva del libro "${reserva.Titulo}" en la sucursal ${reserva.Sucursal} vence en ${horasRestantes} horas`;
+            } else {
+                mensaje = `Tu reserva del libro "${reserva.Titulo}" en la sucursal ${reserva.Sucursal} vence en ${horasRestantes} horas`;
+            }
+
+            // Verificar si ya existe una notificación reciente para esta reserva
+            const notificacionExistente = await Notificacion.findOne({
+                where: {
+                    ID_Usuario: reserva.ID_Usuario,
+                    Tipo: 'Reserva',
+                    Mensaje: {
+                        [Op.like]: `%${reserva.Titulo}%`
+                    },
+                    Fecha: {
+                        [Op.gte]: new Date(Date.now() - 3 * 60 * 60 * 1000) // Últimas 3 horas
+                    }
+                }
+            });
+            
+            // Solo crear nueva notificación si no existe una reciente
+            if (!notificacionExistente) {
+                await Notificacion.create({
+                    ID_Usuario: reserva.ID_Usuario,
+                    Mensaje: mensaje,
+                    Tipo: 'Reserva',
+                    Fecha: new Date(),
+                    Leido: false
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Error al verificar reservas por vencer:', error);
     }
 };
 
@@ -74,5 +169,11 @@ export const initScheduledJobs = () => {
     cron.schedule('0 8,20 * * *', async () => {
         console.log('Verificando préstamos próximos a vencer...');
         await checkPrestamosVencimiento();
+    });
+
+    // Verificar reservas cada hora
+    cron.schedule('11 8,23 * * *', async () => {
+        console.log('Verificando reservas próximas a vencer...');
+        await checkReservasVencimiento();
     });
 };

@@ -21,36 +21,57 @@ const getUser = async (req: Request, res: Response) => {
 
 const getUsers = async (req: Request, res: Response) => {
     try {
-        // Obtener el tipo de usuario desde el cuerpo de la solicitud
         const userType = req.body.user.User.Tipo_Usuario;
+        const userSucursal = req.body.user.User.ID_Sucursal;
 
-        // Definir el mapeo de tipos de usuario
         const userTypeMapping: { [key: string]: string[] } = {
             Admin: ['Admin Sucursal'],
             'Admin Sucursal': ['Prestamos', 'Inventario', 'Cliente'],
             Prestamos: ['Cliente']
         };
 
-        // Verificar si el tipo de usuario tiene permisos definidos
         if (!userTypeMapping[userType]) {
             return res.status(403).json({ message: "No tienes permisos para acceder a esta información." });
         }
 
-        // Obtener los tipos de usuario que el usuario autenticado puede ver
         const allowedUserTypes = userTypeMapping[userType];
 
-        // Consultar los usuarios que coincidan con los tipos permitidos
         const users = await user.findAll({
+            attributes: [
+                'ID',
+                'Nombre_completo',
+                'CURP',
+                'Nombre_Usuario',
+                'Correo',
+                'Tipo_Usuario',
+                [Sequelize.col('Personal.ID_Sucursal'), 'ID_Sucursal'],
+            ],
+            include: [{
+                model: Personal,
+                attributes: [],
+                include: [{
+                    model: Sucursales,
+                    attributes: []
+                }],
+                required: false
+            }],
             where: {
-                Tipo_Usuario: allowedUserTypes
-            }
+                Tipo_Usuario: allowedUserTypes,
+                ...(userType !== 'Admin' && {
+                    '$Personal.ID_Sucursal$': userSucursal
+                })
+            },
+            order: [
+                ['ID', 'DESC']
+            ],
+            raw: true
         });
-        // Devolver la lista de usuarios
+        
         return res.status(200).json(users);
     } catch (error) {
+        console.error('Error en getUsers:', error);
         handleHttp(res, 'ERROR_GET_USERS');
     }
-
 }
 const getTypeUsers = async (req: Request, res: Response) => {
     try {
@@ -82,7 +103,7 @@ const getSucForUser = async (req: Request, res: Response) => {
     try{
         const { id } = req.params;
         const sucursales = await Sucursales.findAll({ where: { ID_Usuario: parseInt(id) } });
-        console.log(sucursales);
+        // console.log(sucursales);
         res.status(200).json(sucursales);
     } catch (error) {
         handleHttp(res, 'ERROR_GET_USERS_BY_SUCURSAL');
@@ -94,7 +115,7 @@ const putUser = async (req: Request, res: Response) => {
     try{
         const { id } = req.params;
         const User = req.body;
-        console.log(id,User);
+        // console.log(id,User);
         const idUser = await user.findByPk(parseInt(id));
         if(!idUser){
             return res.status(404).json({ message: "No existe ese usuario"})
@@ -112,7 +133,7 @@ const putUserImage = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const file = req.body; // Dependiendo de cómo configures multer
-        console.log(file);
+        // console.log(file);
         if (!file) {
             return res.status(400).json({ message: "No se proporcionó ninguna imagen" });
         }
@@ -127,7 +148,7 @@ const putUserImage = async (req: Request, res: Response) => {
         
         res.json(idUser);
     } catch (error) {
-        console.error('Error al actualizar imagen:', error);
+        // console.error('Error al actualizar imagen:', error);
         handleHttp(res, 'ERROR_UPDATING_USERS');
     }
 }
@@ -136,7 +157,7 @@ const putUserPassword = async (req: Request, res: Response) => {
     try{
         const { id } = req.params;
         const { Password } = req.body;
-        console.log(id,Password);
+        // console.log(id,Password);
         const idUser = await user.findByPk(parseInt(id));
         if(!idUser){
             return res.status(404).json({ message: "No existe ese usuario"})

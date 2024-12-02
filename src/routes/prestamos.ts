@@ -4,7 +4,7 @@ import { checkAuth, checkRole } from "../middleware/session";
 const router = Router();
 
 
-router.get('/devueltos/:idUsuario/:idLibro',checkAuth,checkRole(['Prestamos','Inventario','Cliente']),getPrestamosDevueltos)
+router.get('/devueltos/:idUsuario/:idEjemplar',checkAuth,checkRole(['Prestamos','Inventario','Cliente']),getPrestamosDevueltos)
 // router.get('/search',checkAuth,checkRole(['Prestamos','Inventario','Cliente']),getPrestamoSearch)
 router.get('/:id',checkAuth,checkRole(['Prestamos','Inventario','Cliente']),getPrestamo)
 router.get('/',checkAuth,checkRole(['Admin Sucursal']),getPrestamos)

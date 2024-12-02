@@ -1,7 +1,5 @@
 import { Request, Response } from "express";
 import { handleHttp } from "../utils/error.handle";
-import { Prestamos } from "../models/Prestamos.model"; 
-import { user } from "../models/users.model";
 import { Pago_Pendiente } from "../models/pagos_pendientes.model";
 
 //Obtener todos los pagos pendientes

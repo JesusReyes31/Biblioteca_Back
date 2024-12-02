@@ -5,14 +5,20 @@ import { user } from "../models/users.model";
 import { Book } from "../models/books.model";
 import { Reservas } from "../models/Reservas.model";
 import { Op, Sequelize } from "sequelize";
+import { Sucursales } from "../models/sucursales.model";
+import { Ejemplares } from "../models/ejemplares.model";
 
 //Prestamos Devueltos
 const getPrestamosDevueltos = async (req: Request, res: Response) => {
     try {
-        const { idUsuario, idLibro } = req.params;
-        console.log(idUsuario,idLibro);
-        const prestamos = await Prestamos.findAll({where:{ID_Usuario:parseInt(idUsuario),ID_Libro:idLibro,Estado:'Devuelto'}});
-        console.log(prestamos);
+        const { idUsuario, idEjemplar } = req.params;
+        const prestamos = await Prestamos.findAll({
+            where: {
+                ID_Usuario: parseInt(idUsuario),
+                ID_Ejemplar: parseInt(idEjemplar),
+                Estado: 'Devuelto'
+            }
+        });
         res.status(200).json(prestamos);
     } catch (error) {
         handleHttp(res, 'ERROR_GET_PRESTAMOS_DEVUELTOS', error);
@@ -23,35 +29,48 @@ const getPrestamosDevueltos = async (req: Request, res: Response) => {
 const getPrestamo = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        console.log(id);
         const prestamosData = await Prestamos.findAll({
             where: { ID_Usuario: parseInt(id) },
             attributes: [
                 'ID_Prestamo',
-                'ID_Libro',
+                'ID_Ejemplar',
                 'ID_Usuario',
                 'Fecha_prestamo',
                 'Fecha_devolucion_prevista',
                 'Estado',
-                [Sequelize.col('Book.Titulo'), 'Titulo'] // Alias explícito
+                [Sequelize.col('Ejemplar.Book.Titulo'), 'Titulo'],
+                [Sequelize.col('Ejemplar.Book.Autor'), 'Autor'],
+                [Sequelize.col('Ejemplar.Sucursales.Nombre'), 'Sucursal']
             ],
             include: [{
-              model: Book, // Relacionar con el modelo de Book
-              attributes: [] // Incluir solo el atributo 'Titulo'
+                model: Ejemplares,
+                as: 'Ejemplar',
+                attributes: [],
+                include: [{
+                    model: Book,
+                    attributes: []
+                },
+                {
+                    model: Sucursales,
+                    as:'Sucursales',
+                    attributes: []
+                }]
             }],
-            raw: true, // Devuelve un objeto plano
-          });
+            order: [
+                ['ID_Prestamo', 'DESC'] // Agregamos el orden descendente
+            ],
+            raw: true
+        });
           
-          // Opcional: transformar los resultados para incluir solo lo necesario
-          const prestamo = prestamosData.map(prestamo => ({
+        const prestamo = prestamosData.map(prestamo => ({
             ...prestamo,
             Fecha_prestamo: prestamo.Fecha_prestamo.toISOString().split('T')[0],
             Fecha_devolucion_prevista: prestamo.Fecha_devolucion_prevista.toISOString().split('T')[0]
-          }));
-          console.log(prestamo);
-          return prestamosData.length > 0 
-          ? res.json(prestamosData) 
-          : res.status(404).json({ message: 'No se encontraron prestamos para este usuario.' });
+        }));
+
+        return prestamosData.length > 0 
+            ? res.json(prestamosData) 
+            : res.status(404).json({ message: 'No se encontraron prestamos para este usuario.' });
     } catch (error) {
         handleHttp(res, 'ERROR_GET_PRESTAMO', error);
     }
@@ -102,7 +121,7 @@ const getPrestamos = async (req: Request, res: Response) => {
         const prestamos = await Prestamos.findAll({
             attributes: [
                 'ID_Prestamo',
-                'ID_Libro',
+                'ID_Ejemplar',
                 'ID_Usuario',
                 [
                     Sequelize.literal("CONVERT(VARCHAR(10), Prestamos.Fecha_prestamo, 120)"),
@@ -113,20 +132,33 @@ const getPrestamos = async (req: Request, res: Response) => {
                     'Fecha_devolucion_prevista'
                 ],
                 'Estado',
-                [Sequelize.col('Book.Titulo'), 'Titulo'],  // Alias explícito para el título del libro
-                [Sequelize.col('user.Nombre_Usuario'), 'Nombre_Usuario'] // Alias explícito para el nombre del usuario   
+                [Sequelize.col('Ejemplar.Book.Titulo'), 'Titulo'],
+                [Sequelize.col('user.Nombre_Usuario'), 'Nombre_Usuario'],
+                [Sequelize.col('Ejemplar.Sucursales.Nombre'), 'Sucursal']
             ],
             include: [
                 {
-                    model: Book, // Relaciona con el modelo Book
-                    attributes: [] // No necesitamos otros atributos de Book, solo Titulo
+                    model: Ejemplares,
+                    as: 'Ejemplar',
+                    attributes: [],
+                    include: [
+                        {
+                            model: Book,
+                            attributes: []
+                        },
+                        {
+                            model: Sucursales,
+                            as: 'Sucursales',
+                            attributes: []
+                        }
+                    ]
                 },
                 {
-                    model: user, // Relaciona con el modelo Usuario
-                    attributes: [] // No necesitamos otros atributos de Usuario, solo Nombre
+                    model: user,
+                    attributes: []
                 }
             ],
-            raw: true, // Devuelve un objeto plano
+            raw: true,
         });
         res.status(200).json(prestamos);
     } catch (error) {
@@ -135,19 +167,19 @@ const getPrestamos = async (req: Request, res: Response) => {
 }
 
 const postPrestamo = async (req: Request, res: Response) => {
-    const { idlibro, idusuario } = req.body;
+    const { idEjemplar, idusuario } = req.body;
     try {
-        console.log(idlibro, idusuario);
+        console.log(idEjemplar,idusuario)
         // Verificar si el usuario existe
         const usuario = await user.findByPk(idusuario);
         if (!usuario) {
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
 
-        // Verificar si el usuario ya tiene un préstamo activo del mismo libro
+        // Verificar si el usuario ya tiene un préstamo activo del mismo ejemplar
         const prestamoExistente = await Prestamos.findOne({
             where: {
-                ID_Libro: idlibro,
+                ID_Ejemplar: idEjemplar,
                 ID_Usuario: idusuario,
                 Estado: 'Pendiente'
             }
@@ -159,63 +191,45 @@ const postPrestamo = async (req: Request, res: Response) => {
             });
         }
 
-        // Verificar si el libro está reservado
+        // Verificar si el ejemplar está reservado
         const reserva = await Reservas.findOne({
             where: {
-                ID_Libro: idlibro,
+                ID_Ejemplar: idEjemplar,
                 ID_Usuario: idusuario
             }
         });
 
-        let libro;
+        // Verificar disponibilidad del ejemplar
+        const ejemplar = await Ejemplares.findByPk(idEjemplar);
 
-        if (reserva) {
-            // Si el libro está reservado, no es necesario verificar la cantidad
-            libro = await Book.findOne({
-                where: {
-                    ID: idlibro
-                }
+        if (!ejemplar || (ejemplar.Cantidad <= 0 && !reserva)) {
+            return res.status(400).json({ 
+                message: 'No hay ejemplares disponibles en esta sucursal 😞' 
             });
-            if (!libro) {
-                return res.status(400).json({ message: 'Fallo, El libro no existe 😞' });
-            }
-
-            // Eliminar la reserva si se realiza el préstamo
-            await reserva.destroy();
-        } else {
-            // Verificar la disponibilidad del libro y su cantidad
-            libro = await Book.findOne({
-                where: {
-                    ID: idlibro
-                }
-            });
-            if (!libro || libro.Cantidad <= 0) {
-                return res.status(400).json({ message: 'Fallo, El libro ya no se encuentra disponible 😞' });
-            }
         }
 
         // Crear el préstamo
         const fechaPrestamo = new Date();
         const fechaDevolucionPrevista = new Date(fechaPrestamo);
         fechaDevolucionPrevista.setDate(fechaDevolucionPrevista.getDate() + 7);
+        
         const nuevoPrestamo = await Prestamos.create({
-            ID_Libro: idlibro,
+            ID_Ejemplar: idEjemplar,
             ID_Usuario: idusuario,
             Fecha_prestamo: fechaPrestamo,
             Fecha_devolucion_prevista: fechaDevolucionPrevista,
             Estado: 'Pendiente',
         });
-        
-        // Reducir la cantidad de libros disponibles si no es un reservado
-        if (!reserva) {
-            const nuevaCantidad = libro.Cantidad - 1;
 
-            // Actualizar la cantidad y disponibilidad del libro
-            await libro.update({
-                Cantidad: nuevaCantidad,
-                Disponibilidad: nuevaCantidad > 0 ? 'Disponible' : 'No Disponible'
-            });
+        // Si había una reserva, eliminarla
+        if (reserva) {
+            await reserva.destroy();
         }
+
+        // Actualizar cantidad de ejemplares
+        await ejemplar.update({
+            Cantidad: ejemplar.Cantidad - 1
+        });
 
         res.status(201).json({ message: 'Libro prestado 😊', prestamo: nuevoPrestamo });
     } catch (error) {
@@ -226,32 +240,42 @@ const postPrestamo = async (req: Request, res: Response) => {
 const putPrestamo = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const prestamoData = req.body;
-        console.log(id,prestamoData.ID_usuario);
-        // Buscar el préstamo existente por ID_Libro
-        const prestamo = await Prestamos.findOne({ where: { ID_Libro: id,ID_Usuario:prestamoData.ID_usuario, Estado: 'Pendiente' } });
+        const { ID_usuario } = req.body;
+        
+        const ejj = await Ejemplares.findOne({where:{ID_Libro:id,ID_Sucursal:req.body.user.User.ID_Sucursal}});
+        if(!ejj){
+            return res.status(404).json({ message: "No se encontró el ejemplar" });
+        }
+        const prestamo = await Prestamos.findOne({ 
+            where: { 
+                ID_Ejemplar: ejj?.ID,
+                ID_Usuario: ID_usuario,
+                Estado: 'Pendiente' 
+            } 
+        });
+
         if (!prestamo) {
             return res.status(404).json({ message: "No se encontró el préstamo" });
         }
-        // Buscar el libro correspondiente
-        const libro = await Book.findOne({ where: { ID: id } });
-        if (!libro) {
-            return res.status(400).json({ message: 'Fallo, El libro no existe 😞' });
+
+        const ejemplar = await Ejemplares.findByPk(prestamo.ID_Ejemplar);
+
+        if (!ejemplar) {
+            return res.status(400).json({ message: 'No se encontró el ejemplar' });
         }
-        // Actualizar la Fecha_devolucion_prevista a la fecha actual
+
+        // Actualizar el préstamo
         const fechaDevolucion = new Date();
         await prestamo.update({
             Fecha_devolucion_prevista: fechaDevolucion,
-            Estado: 'Devuelto' // Cambiar el estado a 'Devuelto'
+            Estado: 'Devuelto'
         });
-        // Aumentar la cantidad de libros disponibles
-        const nuevaCantidad = libro.Cantidad + 1;
-        const nuevaDisponibilidad = nuevaCantidad > 0 ? 'Disponible' : 'No Disponible';
-        // Actualizar el libro
-        await libro.update({
-            Cantidad: nuevaCantidad,
-            Disponibilidad: nuevaDisponibilidad
+
+        // Actualizar cantidad de ejemplares
+        await ejemplar.update({
+            Cantidad: ejemplar.Cantidad + 1
         });
+
         res.json({ message: 'Libro devuelto 😊', prestamo });
     } catch (error) {
         handleHttp(res, 'ERROR_UPDATE_PRESTAMO', error);
@@ -262,7 +286,7 @@ const putPrestamo = async (req: Request, res: Response) => {
 const deletePrestamo = async (req: Request, res: Response) => {
     try {
         const { id,idU } = req.params;
-        const prestamo = await Prestamos.findOne({where:{ID_Libro:id,ID_Usuario:idU}});
+        const prestamo = await Prestamos.findOne({where:{ID_Ejemplar:parseInt(id),ID_Usuario:parseInt(idU)}});
         if (!prestamo) {
             return res.status(404).json({ message: "No se encontró el Prestamo" });
         }

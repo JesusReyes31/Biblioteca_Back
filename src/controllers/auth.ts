@@ -6,8 +6,9 @@ import { Op } from "sequelize";
 import { user } from "../models/users.model";
 
 const registerCtrl = async (req:Request, res:Response) =>{
+    console.log('req.body: ',req.body)
     const responseUser = await registerNewUser(req.body);
-    console.log('Respuesta',responseUser)
+    // console.log('Respuesta',responseUser)
     res.send(responseUser);
 }
 
@@ -16,6 +17,7 @@ const loginCtrl = async (req:Request, res:Response) =>{
     if (typeof responseUser === 'string') {
         return res.status(403).send(responseUser);
     }
+    console.log('responseUser: ',responseUser.Datos)
     res
     /*.cookie('authToken', responseUser.Token, {
         httpOnly: true, // Solo accesible desde el servidor, no desde JavaScript
@@ -23,7 +25,7 @@ const loginCtrl = async (req:Request, res:Response) =>{
         sameSite: 'strict', // Restringe el envío de cookies a solicitudes del mismo origen
         maxAge: 3600000   // Tiempo de vida de la cookie (1 hora)
     })*/.header('authorization', responseUser.Token)
-    .json({ Datos:{ID:responseUser.Datos.ID,Nombre_usuario:responseUser.Datos.Nombre_Usuario,Correo:responseUser.Datos.Correo,Tipo_usuario:responseUser.Datos.Tipo_Usuario,Imagen:responseUser.Datos.Imagen} });
+    .json({ Datos:{ID:responseUser.Datos.ID,Nombre_usuario:responseUser.Datos.Nombre_Usuario,Correo:responseUser.Datos.Correo,Tipo_usuario:responseUser.Datos.Tipo_Usuario,Imagen:responseUser.Datos.Imagen,ID_Sucursal:responseUser.ID_Sucursal} });
     // res.json({jwt:responseUser.Token,Datos:{Nombre_usuario:responseUser.Datos.Nombre_usuario,Correo:responseUser.Datos.Correo,Tipo_usuario:responseUser.Datos.Tipo_Usuario}});
 }
 

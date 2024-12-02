@@ -4,6 +4,7 @@ import { Resenas } from "../models/Resenas.model";
 import { Prestamos } from "../models/Prestamos.model";
 import { user } from "../models/users.model";
 import { Sequelize } from "sequelize";
+import { Ejemplares } from "../models/ejemplares.model";
 
 //Reseña de un Usuario
 const getResena = async (req: Request, res: Response) => {
@@ -19,8 +20,9 @@ const getResena = async (req: Request, res: Response) => {
 const getResenas = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
+        const ejemplar = await Ejemplares.findOne({where:{ID:parseInt(id)}})
         const resenasData = await Resenas.findAll({
-            where: { ID_Libro: id },
+            where: { ID_Libro: ejemplar?.ID_Libro },
             attributes: [
                 'ID_Usuario',
                 'ID_Resena',
@@ -39,10 +41,13 @@ const getResenas = async (req: Request, res: Response) => {
                     attributes: []  // Asumiendo que el campo del nombre es 'nombre', cámbialo si es diferente
                 }
             ],
+            order: [
+                ['ID_Resena', 'DESC'] // Agregamos el orden descendente
+            ],
             raw: true
         });
         const resenas = resenasData
-        console.log(resenas); // Aquí verás la información completa de la reseña y el nombre del usuario
+        // console.log(resenas); // Aquí verás la información completa de la reseña y el nombre del usuario
         res.status(200).json(resenas);
     } catch (error) {
         handleHttp(res, 'ERROR_GET_RESEÑAS', error);
@@ -82,7 +87,7 @@ const putResena = async (req: Request, res: Response) => {
         // Actualizar la reseña
         resena.Calificacion = Calificacion;
         resena.Descripcion = Descripcion ;
-        console.log(resena);
+        // console.log(resena);
         await resena.save();
         res.json(resena);
     } catch (error) {
@@ -100,20 +105,6 @@ const deleteResena = async (req: Request, res: Response) => {
         if (!resena) {
             return res.status(404).json({ message: "No se encontró la reseña" });
         }
-
-        // Verificar que el usuario haya solicitado y devuelto el libro
-        const prestamo = await Prestamos.findOne({
-            where: { 
-                ID_Libro: resena.ID_Libro, 
-                ID_Usuario: resena.ID_Usuario, 
-                Estado: 'Devuelto' // Suponiendo que hay un campo "estado" que marca si el libro ha sido devuelto
-            }
-        });
-
-        if (!prestamo) {
-            return res.status(400).json({ message: "El usuario debe haber solicitado y devuelto el libro antes de eliminar la reseña." });
-        }
-
         // Eliminar la reseña
         await resena.destroy();
         res.json({ message: "Reseña eliminada correctamente" });

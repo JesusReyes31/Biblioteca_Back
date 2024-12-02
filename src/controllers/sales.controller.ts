@@ -44,7 +44,7 @@ const getVentasPendientes = async (req: Request, res: Response) => {
                 }
             ],
             order: [
-                ['Fecha_Venta', 'ASC']
+                ['ID_Venta', 'DESC']
             ],
             raw: true
         });
@@ -62,7 +62,7 @@ const getVentasPendientes = async (req: Request, res: Response) => {
         });
 
     } catch (error) {
-        console.log(error);
+        // console.log(error);
         return res.status(500).json({
             message: "Error al obtener las ventas pendientes",
             error: error
@@ -101,21 +101,55 @@ const getSales = async (req: Request, res: Response) => {
 
 // Obtener Ventas por ID de Usuario
 const getSalesID = async (req: Request, res: Response) => {
-    try{
+    try {
         const { id } = req.params;
-        const SaleID = await Venta.findAll({
-            where: { ID_Usuario: parseInt(id) } // Aquí haces la búsqueda por el ID del usuario
+        
+        // Obtener las ventas con sus pagos pendientes en una sola consulta
+        const ventas:any = await Venta.findAll({
+            where: { 
+                ID_Usuario: parseInt(id) 
+            },
+            attributes: [
+                'ID_Venta',
+                'ID_Usuario',
+                'Cantidad',
+                'Total',
+                [Sequelize.literal("CONVERT(VARCHAR(10), Venta.Fecha_Venta, 120)"), 'Fecha_Venta'],
+                'Entregado',
+                'ID_Metodo_Pago',
+                [Sequelize.col('Pago_Pendiente.Codigo'), 'Codigo']
+            ],
+            include: [{
+                model: Pago_Pendiente,
+                attributes: [],
+                required: false // LEFT JOIN para obtener todas las ventas, tengan o no pago pendiente
+            }],
+            order: [
+                ['ID_Venta', 'DESC'] // Agregamos el orden descendente
+            ],
+            raw: true,
+            nest: true // Para tener los resultados anidados
         });
-        console.log(SaleID)
-        if (SaleID.length > 0) {
-            res.status(200).json(SaleID); // Enviar las ventas encontradas
-        } else {
-            res.status(404).json({ message: "oNo se encontraron ventas para este usuario" });
+
+        if (!ventas.length) {
+            return res.status(404).json({ 
+                message: "No se encontraron ventas para este usuario" 
+            });
         }
-    } catch(error){
+
+        // Formatear la respuesta
+        // const ventasFormateadas = ventas.map((venta:any) => ({
+        //     ...venta,
+        //     Codigo: venta.Pago_Pendiente?.Codigo || null // Si no hay pago pendiente, será null
+        // }));
+
+        res.status(200).json(ventas);
+
+    } catch (error) {
+        console.error('Error en getSalesID:', error);
         handleHttp(res, 'ERROR_GET_SALESID');
     }
-}
+};
 
 
 

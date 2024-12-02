@@ -29,7 +29,14 @@ const sequelize = new Sequelize(
     process.env.DB_USER as string,
     process.env.DB_PASSWORD as string,{
         host: process.env.DB_HOST,
-        dialect: 'mssql'
+        dialect: 'mssql',
+        timezone: '-07:00', //Zona horaria Mazatlan
+        dialectOptions: {
+            options: {
+                useUTC: false,
+                dateFirst: 1,
+            }
+        }
     }
 )
 const checkConnection = async() => {

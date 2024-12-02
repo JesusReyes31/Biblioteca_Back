@@ -3,13 +3,46 @@ import { handleHttp } from "../utils/error.handle";
 import { Carrito } from "../models/cart.model";
 import { Book } from "../models/books.model";
 import { Sequelize } from "sequelize";
+import { Ejemplares } from "../models/ejemplares.model";
+import { Sucursales } from "../models/sucursales.model";
 
 // Para obtener información específica de 1 artículo en el carrito
 const getCart = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const { datos } = req.body;
-        const Cart = await Carrito.findOne({ where: { ID: id, ID_Usuario: datos.ID_Usuario, ID_Libro: datos.ID_Libro } });
+        const Cart = await Carrito.findOne({ 
+            where: { 
+                ID: id, 
+                ID_Usuario: datos.ID_Usuario, 
+                ID_Ejemplar: datos.ID_Ejemplar 
+            },
+            attributes: [
+                'ID', 
+                'Cantidad',
+                'ID_Ejemplar',
+                'ID_Usuario',
+                [Sequelize.col('Ejemplares.ID_Libro'), 'ID_Libro'],
+                [Sequelize.col('Ejemplares.Book.Titulo'), 'Titulo'],
+                [Sequelize.col('Ejemplares.Book.Autor'), 'Autor'],
+                [Sequelize.col('Ejemplares.Precio'), 'Precio'],
+                [Sequelize.col('Ejemplares.Book.Imagen'), 'Imagen'],
+                [Sequelize.col('Ejemplares.Cantidad'), 'Cantidad_disponible'],
+                [Sequelize.col('Ejemplares.Sucursal.Nombre'), 'Sucursal']
+            ],
+            include: [{
+                model: Ejemplares,
+                attributes: [],
+                include: [{
+                    model: Book,
+                    attributes: []
+                },
+                {
+                    model: Sucursales,
+                    attributes: []
+                }]
+            }]
+        });
         return Cart ? res.json(Cart) : res.status(404).json({ message: "No se encontró artículo en el carrito" });
     } catch (error) {
         handleHttp(res, 'ERROR_GET_CARRITO', error);
@@ -20,26 +53,36 @@ const getCart = async (req: Request, res: Response) => {
 const getCarts = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        // console.log(id)
         const Carts = await Carrito.findAll({ 
             where: { ID_Usuario: parseInt(id)},
             attributes: [
                 'ID', 
                 'Cantidad',
-                'ID_Libro',
+                'ID_Ejemplar',
                 'ID_Usuario',
-                [Sequelize.col('Book.Titulo'), 'Titulo'],
-                [Sequelize.col('Book.Autor'), 'Autor'],
-                [Sequelize.col('Book.Precio'), 'Precio'],
-                [Sequelize.col('Book.Imagen'), 'Imagen'],
-                [Sequelize.col('Book.Cantidad'), 'Cantidad_disponible']
+                [Sequelize.col('Ejemplar.ID_Libro'), 'ID_Libro'],
+                [Sequelize.col('Ejemplar.Book.Titulo'), 'Titulo'],
+                [Sequelize.col('Ejemplar.Book.Autor'), 'Autor'],
+                [Sequelize.col('Ejemplar.Precio'), 'Precio'],
+                [Sequelize.col('Ejemplar.Book.Imagen'), 'Imagen'],
+                [Sequelize.col('Ejemplar.Cantidad'), 'Cantidad_disponible'],
+                [Sequelize.col('Ejemplar.Sucursales.Nombre'), 'Sucursal']
             ],
             include: [{
-                model: Book,
-                attributes: ['ID', 'Titulo','Autor', 'Precio', 'Imagen','Cantidad']
+                model: Ejemplares,
+                as: 'Ejemplar',
+                attributes: [],
+                include: [{
+                    model: Book,
+                    attributes: []
+                },
+                {
+                    model: Sucursales,
+                    as: 'Sucursales',
+                    attributes: []
+                }]
             }]
         });
-        // console.log(Carts)
         res.status(200).json(Carts);
     } catch (error) {
         handleHttp(res, 'ERROR_GET_CARRITO', error);
@@ -49,24 +92,42 @@ const getCarts = async (req: Request, res: Response) => {
 // Para agregar un artículo al carrito
 const addToCart = async (req: Request, res: Response) => {
     try {
-        const { ID_Usuario, ID_Libro, Cantidad } = req.body;
-        // Verificar si el libro existe en la base de datos
-        const libroExistente = await Book.findByPk(ID_Libro);
-        if (!libroExistente) {
-            return res.status(404).json({ message: "El libro no está registrado" });
+        const { ID_Usuario, ID_Ejemplar, Cantidad } = req.body;
+        
+        // Verificar si el ejemplar existe
+        const ejemplar = await Ejemplares.findByPk(ID_Ejemplar);
+
+        if (!ejemplar) {
+            return res.status(404).json({ 
+                message: "El ejemplar no está disponible" 
+            });
+        }
+
+        if (ejemplar.Cantidad < Cantidad) {
+            return res.status(400).json({ 
+                message: "No hay suficientes ejemplares disponibles" 
+            });
         }
 
         // Buscar si ya existe el item en el carrito
         const itemExistente = await Carrito.findOne({
             where: {
                 ID_Usuario: ID_Usuario,
-                ID_Libro: ID_Libro
+                ID_Ejemplar: ID_Ejemplar
             }
         });
 
         if (itemExistente) {
+            // Verificar que la nueva cantidad total no exceda el stock
+            const nuevaCantidadTotal = itemExistente.Cantidad + Cantidad;
+            if (nuevaCantidadTotal > ejemplar.Cantidad) {
+                return res.status(400).json({ 
+                    message: "La cantidad solicitada excede el stock disponible" 
+                });
+            }
+
             // Si existe, actualizar la cantidad
-            itemExistente.Cantidad += Cantidad;
+            itemExistente.Cantidad = nuevaCantidadTotal;
             await itemExistente.save();
             return res.status(200).json(itemExistente);
         }
@@ -74,7 +135,7 @@ const addToCart = async (req: Request, res: Response) => {
         // Si no existe, crear nuevo item
         const nuevoItem = await Carrito.create({ 
             ID_Usuario: parseInt(ID_Usuario), 
-            ID_Libro: ID_Libro, 
+            ID_Ejemplar: ID_Ejemplar,
             Cantidad: Cantidad 
         });
         res.status(201).json(nuevoItem);
@@ -104,16 +165,19 @@ const updateCart = async (req: Request, res: Response) => {
 
 // Para eliminar un artículo del carrito
 const deleteFromCart = async (req: Request, res: Response) => {
-    console.log(req.params)
     try {
-        const { id, libro } = req.params;
-        const item = await Carrito.findOne({ where: { ID_Usuario: parseInt(id), ID_Libro: libro } });
+        const { id } = req.params;
+        const item = await Carrito.findOne({ 
+            where: { 
+                ID: parseInt(id)
+            } 
+        });
 
         if (!item) {
             return res.status(404).json({ message: "Artículo no encontrado en el carrito" });
         }
-        item.destroy();
-        res.json({ message: "Artículo(s) eliminado(s) del carrito" });
+        await item.destroy();
+        res.json({ message: "Artículo eliminado del carrito" });
     } catch (error) {
         handleHttp(res, 'ERROR_DELETE_CARRITO', error);
     }

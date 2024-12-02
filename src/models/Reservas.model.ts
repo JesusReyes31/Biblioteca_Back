@@ -4,7 +4,7 @@ import { Book } from './books.model';  // Asegúrate de que Book esté importado
 
 interface ReservasAttributes {
     ID_Reserva: number;
-    ID_Libro: string;
+    ID_Ejemplar: number;
     ID_Usuario: number;
     Fecha_reserva: Date;
     Fecha_recoger: Date;
@@ -14,7 +14,7 @@ interface ReservasCreationAttributes extends Optional<ReservasAttributes, 'ID_Re
 
 class Reservas extends Model<ReservasAttributes, ReservasCreationAttributes> implements ReservasAttributes {
     public ID_Reserva!: number;
-    public ID_Libro!: string;
+    public ID_Ejemplar!: number;
     public ID_Usuario!: number;
     public Fecha_reserva!: Date;
     public Fecha_recoger!: Date;
@@ -29,8 +29,8 @@ Reservas.init(
             primaryKey: true,
             autoIncrement: true,
         },
-        ID_Libro: {
-            type: DataTypes.STRING,
+        ID_Ejemplar: {
+            type: DataTypes.INTEGER,
             allowNull: false,
         },
         ID_Usuario: {

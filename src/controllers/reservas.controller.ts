@@ -6,6 +6,8 @@ import { user } from "../models/users.model";
 import { Sequelize } from "sequelize";
 import { Prestamos } from "../models/Prestamos.model";
 import { Carrito } from "../models/cart.model";
+import { Ejemplares } from "../models/ejemplares.model";
+import { Sucursales } from "../models/sucursales.model";
 
 const getReserva = async (req: Request, res: Response) => {
     try {
@@ -18,17 +20,19 @@ const getReserva = async (req: Request, res: Response) => {
     }
 }
 const getReservasByID = async (req: Request, res: Response) => {
-    console.log('getReservasByID');
     try {
         const { id } = req.params;
         const Id = parseInt(id);
-        // console.log(Id);
         const reservas = await Reservas.findAll({
-            attributes: ['ID_Reserva',
-                'ID_Libro',
-                [Sequelize.col('Book.Titulo'), 'Titulo'],
-                [Sequelize.col('Book.Imagen'), 'Imagen'],
-                [Sequelize.col('Book.Autor'), 'Autor'],
+            attributes: [
+                'ID_Reserva',
+                'ID_Ejemplar',
+                'ID_Usuario',
+                [Sequelize.col('Ejemplar.ID_Libro'), 'ID_Libro'],
+                [Sequelize.col('Ejemplar.Book.Titulo'), 'Titulo'],
+                [Sequelize.col('Ejemplar.Book.Imagen'), 'Imagen'],
+                [Sequelize.col('Ejemplar.Book.Autor'), 'Autor'],
+                [Sequelize.col('Ejemplar.Sucursales.Nombre'), 'Sucursal'],
                 [
                     Sequelize.literal("CONVERT(VARCHAR(10), Reservas.Fecha_reserva, 120)"),
                     'fecha1'
@@ -38,20 +42,29 @@ const getReservasByID = async (req: Request, res: Response) => {
                     'fecha2'
                 ],
             ],
-            include: [
-                {
+            include: [{
+                model: Ejemplares,
+                as: 'Ejemplar',
+                attributes: [],
+                include: [{
                     model: Book,
-                    attributes: [],
+                    attributes: []
                 },
-            ],
+                {
+                    model: Sucursales,
+                    as: 'Sucursales',
+                    attributes: []
+                }]
+            }],
             where: {
                 ID_Usuario: Id,
             },
+            order: [
+                ['ID_Reserva', 'DESC'] // Agregamos el orden descendente
+            ],
         });
-        // console.log(reservas);
         res.status(200).json(reservas);
     } catch (error) {
-        console.error('Error al obtener las reservas por ID:', error);
         handleHttp(res, 'ERROR_GET_RESERVASBYID', error);
     }
 };
@@ -65,89 +78,111 @@ const getReservas = async (req: Request, res: Response) => {
 }
 
 const postReserva = async (req: Request, res: Response) => {
-    const { ID_libro, ID_usuario } = req.body;
-  
-    const id = parseInt(ID_usuario); // Convierte el ID_usuario a entero
-  
+    const { ID_Ejemplar, ID_usuario } = req.body;
+    const id = parseInt(ID_usuario);
+    const idEjemplar = parseInt(ID_Ejemplar);
+    
     if (isNaN(id)) {
-      return res.status(400).json({ message: 'ID de usuario no válido' });
+        return res.status(400).json({ message: 'ID de usuario no válido' });
     }
   
     try {
-      // Verificar si el usuario existe
-      const usuario = await user.findByPk(id);
-      if (!usuario) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
-      }
-
-      // Verificar el carrito para este libro
-      const carritoItems = await Carrito.findAll({
-        where: {
-          ID_Libro: ID_libro
+        // Verificar si el usuario existe
+        const usuario = await user.findByPk(id);
+        if (!usuario) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
         }
-      });
 
-      for (const carritoItem of carritoItems) {
-        if (carritoItem.Cantidad > 0) {
-          // Disminuir la cantidad en el carrito
-          await carritoItem.update({
-            Cantidad: carritoItem.Cantidad - 1
-          });
-      
-          // Si la cantidad llega a 0, eliminar el item del carrito
-          if (carritoItem.Cantidad === 0) {
-            await carritoItem.destroy();
-          }
-        }
-      }
-
-      // Verificar si existe un préstamo activo para este libro y usuario
-      const prestamoActivo = await Prestamos.findOne({
-        where: {
-          ID_Libro: ID_libro,
-          ID_Usuario: id,
-          Estado: 'Pendiente' // Asumiendo que tienes un campo Estado en tu tabla de préstamos
-        }
-      });
-
-      if (prestamoActivo) {
-        return res.status(201).json({ 
-          message: 'Ya tienes un préstamo activo para este libro, no puedes reservarlo 📚' 
+        // Verificar si ya existe una reserva para este ejemplar
+        const reservaExistente = await Reservas.findOne({
+            where: {
+                ID_Ejemplar: idEjemplar,
+                ID_Usuario: id
+            }
         });
-      }
-      // Verificar la disponibilidad del libro
-      const libro = await Book.findOne({
-        where: {
-          ID: ID_libro
+
+        if (reservaExistente) {
+            return res.status(400).json({ 
+                message: 'Ya tienes una reserva activa para este libro 📚' 
+            });
         }
-      });
-      if (!libro || libro.Cantidad <= 0) {
-        return res.status(201).json({ message: 'No se pudo realizar la reserva, el libro no está disponible 😞' });
-      }
+
+        // Verificar el número total de reservas del usuario
+        const totalReservas = await Reservas.count({
+            where: {
+                ID_Usuario: id
+            }
+        });
+
+        if (totalReservas >= 3) {
+            return res.status(400).json({ 
+                message: 'Has alcanzado el límite máximo de 3 reservas 📚' 
+            });
+        }
+
+        // Verificar el carrito para este ejemplar
+        const carritoItem = await Carrito.findOne({
+            where: {
+                ID_Ejemplar: idEjemplar,
+                ID_Usuario: id
+            }
+        });
+
+        if (carritoItem) {
+            if (carritoItem.Cantidad > 0) {
+                await carritoItem.update({
+                    Cantidad: carritoItem.Cantidad - 1
+                });
+          
+                if (carritoItem.Cantidad === 0) {
+                    await carritoItem.destroy();
+                }
+            }
+        }
+
+        // Verificar si existe un préstamo activo
+        const prestamoActivo = await Prestamos.findOne({
+            where: {
+                ID_Ejemplar: idEjemplar,
+                ID_Usuario: id,
+                Estado: 'Pendiente'
+            }
+        });
+
+        if (prestamoActivo) {
+            return res.status(400).json({ 
+                message: 'Ya tienes un préstamo activo para este libro 📚' 
+            });
+        }
+
+        // Verificar la disponibilidad del ejemplar
+        const ejemplar = await Ejemplares.findByPk(idEjemplar);
+
+        if (!ejemplar || ejemplar.Cantidad <= 0) {
+            return res.status(400).json({ 
+                message: 'No hay ejemplares disponibles 😞' 
+            });
+        }
   
-      // Crear la reserva
-      const fechaReserva = new Date();
-      const fechaRecoger = new Date(fechaReserva);
-      fechaRecoger.setDate(fechaRecoger.getDate() + 1);
+        // Crear la reserva
+        const fechaReserva = new Date();
+        const fechaRecoger = new Date();
+        fechaRecoger.setDate(fechaRecoger.getDate() + 1);
+        const nuevaReserva = await Reservas.create({
+            ID_Ejemplar: idEjemplar,
+            ID_Usuario: id,
+            Fecha_reserva: fechaReserva,
+            Fecha_recoger: fechaRecoger,
+        });
   
-      const nuevaReserva = await Reservas.create({
-        ID_Libro: ID_libro,
-        ID_Usuario: id,
-        Fecha_reserva: fechaReserva,
-        Fecha_recoger: fechaRecoger,
-      });
+        // Reducir la cantidad de ejemplares disponibles
+        await ejemplar.update({
+            Cantidad: ejemplar.Cantidad - 1
+        });
   
-      // Reducir la cantidad de libros disponibles
-      const nuevaCantidad = libro.Cantidad - 1;
-      await libro.update({
-        Cantidad: nuevaCantidad,
-        Disponibilidad: nuevaCantidad > 0 ? 'Disponible' : 'No Disponible'
-      });
-  
-      res.status(201).json({ message: 'exito', reserva: nuevaReserva });
+        res.status(201).json({ message: 'Reserva creada con éxito', reserva: nuevaReserva });
     } catch (error) {
-        console.log(error)
-      handleHttp(res, 'ERROR_POST_RESERVA', error);
+        handleHttp(res, 'ERROR_POST_RESERVA', error);
     }
 };
 const putReserva = async (req: Request, res: Response) => {
@@ -168,32 +203,26 @@ const putReserva = async (req: Request, res: Response) => {
 const deleteReserva = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        // console.log(id)
-        // Buscar la reserva a eliminar
         const reserva = await Reservas.findByPk(id);
         if (!reserva) {
             return res.status(404).json({ message: "No se encontró la Reserva" });
         }
 
-        // Obtener el libro relacionado con la reserva
-        const libro = await Book.findByPk(reserva.ID_Libro);
-        if (!libro) {
-            return res.status(404).json({ message: "No se encontró el libro relacionado con la reserva" });
+        // Obtener el ejemplar relacionado con la reserva
+        const ejemplar = await Ejemplares.findByPk(reserva.ID_Ejemplar);
+        if (!ejemplar) {
+            return res.status(404).json({ message: "No se encontró el ejemplar relacionado con la reserva" });
         }
 
-        // Aumentar la cantidad de libros disponibles
-        const nuevaCantidad = libro.Cantidad + 1;
-
-        // Actualizar la cantidad de libros y disponibilidad
-        await libro.update({
-            Cantidad: nuevaCantidad,
-            Disponibilidad: nuevaCantidad > 0 ? 'Disponible' : 'No Disponible'
+        // Aumentar la cantidad de ejemplares disponibles
+        await ejemplar.update({
+            Cantidad: ejemplar.Cantidad + 1
         });
 
         // Eliminar la reserva
         await reserva.destroy();
 
-        res.json({ message: "Reserva eliminada correctamente y cantidad de libro actualizada." });
+        res.json({ message: "Reserva eliminada correctamente y cantidad de ejemplares actualizada." });
     } catch (error) {
         handleHttp(res, 'ERROR_DELETE_RESERVA', error);
     }

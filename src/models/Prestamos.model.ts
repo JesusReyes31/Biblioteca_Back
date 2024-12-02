@@ -4,7 +4,7 @@ import { sequelize } from '../config/sql';
 // Definición de los atributos del usuario
 interface PrestamosAttribute {
     ID_Prestamo:number;
-    ID_Libro: string;
+    ID_Ejemplar: number;
     ID_Usuario: number;
     Fecha_prestamo: Date;
     Fecha_devolucion_prevista:Date;
@@ -17,7 +17,7 @@ interface PrestamosCreationAttributes extends Optional<PrestamosAttribute, 'ID_P
 // Definición de la clase de modelo
 class Prestamos extends Model<PrestamosAttribute, PrestamosCreationAttributes> implements PrestamosAttribute {
     public ID_Prestamo!: number;
-    public ID_Libro!: string;
+    public ID_Ejemplar!: number;
     public ID_Usuario!: number;
     public Fecha_prestamo!: Date;
     public Fecha_devolucion_prevista!: Date;
@@ -32,13 +32,13 @@ Prestamos.init({
         primaryKey: true,
         autoIncrement:true
     },
-    ID_Libro: {
-        type: DataTypes.STRING,
+    ID_Ejemplar: {
+        type: DataTypes.INTEGER,
         allowNull: false
     },
     ID_Usuario: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: false,
     },
     Fecha_prestamo: {
         type: DataTypes.DATE,

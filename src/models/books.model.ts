@@ -7,13 +7,9 @@ interface BookAttributes {
     Autor: string;
     Genero: string;
     ISBN: string;
-    Cantidad: number;
     Anio_publicacion: number;
     Imagen: string;
     Resumen: string;
-    Disponibilidad: 'Disponible' | 'No Disponible';
-    ID_Sucursal: number;
-    Precio: number;
 }
 
 interface BookCreationAttributes extends Optional<BookAttributes, 'ID'> {}
@@ -24,20 +20,16 @@ class Book extends Model<BookAttributes, BookCreationAttributes> implements Book
     public Autor!: string;
     public Genero!: string;
     public ISBN!: string;
-    public Cantidad!: number;
     public Anio_publicacion!: number;
     public Imagen!: string;
     public Resumen!: string;
-    public Disponibilidad!: 'Disponible' | 'No Disponible';
-    public ID_Sucursal!: number;
-    public Precio!: number;
 }
 
 // Inicialización del modelo
 Book.init(
     {
         ID: {
-            type: DataTypes.STRING,
+            type: DataTypes.STRING(100),
             primaryKey: true,
             allowNull: false,
         },
@@ -57,10 +49,6 @@ Book.init(
             type: DataTypes.STRING(20),
             allowNull: false,
         },
-        Cantidad: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-        },
         Anio_publicacion: {
             type: DataTypes.INTEGER,
             allowNull: false,
@@ -71,18 +59,6 @@ Book.init(
         },
         Resumen: {
             type: DataTypes.TEXT,
-            allowNull: false,
-        },
-        Disponibilidad: {
-            type: DataTypes.ENUM('Disponible', 'No Disponible'),
-            allowNull: false,
-        },
-        ID_Sucursal: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-        },
-        Precio: {
-            type: DataTypes.FLOAT,
             allowNull: false,
         },
     },
