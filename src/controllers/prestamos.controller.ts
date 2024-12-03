@@ -80,7 +80,6 @@ const getPrestamo = async (req: Request, res: Response) => {
 const getPrestamoSearch = async (req: Request, res: Response) => {
     try {
         const { search } = req.query; // Se espera un parámetro de búsqueda en la URL
-        console.log(search);
         if (!search) {
             return res.status(400).json({ message: 'El parámetro de búsqueda es obligatorio.' });
         }
@@ -169,7 +168,6 @@ const getPrestamos = async (req: Request, res: Response) => {
 const postPrestamo = async (req: Request, res: Response) => {
     const { idEjemplar, idusuario } = req.body;
     try {
-        console.log(idEjemplar,idusuario)
         // Verificar si el usuario existe
         const usuario = await user.findByPk(idusuario);
         if (!usuario) {

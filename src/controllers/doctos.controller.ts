@@ -506,7 +506,6 @@ const generarReporte = async (req: Request, res: Response) => {
     try {
         const { tipo, fechaInicio, fechaFin } = req.body;
         let data: any[] = [];
-        console.log(tipo, fechaInicio, fechaFin);
         // Consultas según el tipo de reporte
         switch (tipo) {
             case 'inventario':
@@ -763,7 +762,6 @@ const generarReporte = async (req: Request, res: Response) => {
         res.send(Buffer.from(pdfBytes));
 
     } catch (error) {
-        console.log('Error al generar reporte:', error);
         handleHttp(res, 'ERROR_GENERAR_REPORTE');
     }
 };
@@ -775,7 +773,6 @@ const enviarFactura = async (req: Request, res: Response) => {
         await facturapi.invoices.sendByEmail(`${venta?.ID_Factura}`);
         res.status(200).json({message: 'Factura enviada correctamente'});
     }catch(error){
-        console.log(error);
         handleHttp(res, 'ERROR_ENVIAR_FACTURA');
     }
 

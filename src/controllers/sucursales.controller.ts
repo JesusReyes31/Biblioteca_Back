@@ -19,10 +19,8 @@ const getSucursales = async (req:Request,res:Response)=>{
                 ['ID', 'DESC'] // Agregamos el orden descendente
             ],
         });
-        // console.log(sucursales)
         return sucursales ? res.json(sucursales) : res.status(404).json({ message: "No se hay Sucursales Registradas" });
     } catch (error) {
-        // console.log(error)
         handleHttp(res, 'ERROR_GET_SUCURSAL', error);
     }
 }
@@ -47,7 +45,6 @@ const putSucursal = async (req:Request,res:Response) => {
     try{
         const { id } = req.params;
         const Suc = req.body;
-        // console.log('Actualizando Sucursal',Suc)
         if(!Suc.Nombre){
             putSucursalIDUser(req,res)
             return

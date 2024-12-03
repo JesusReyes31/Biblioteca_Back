@@ -15,10 +15,8 @@ const getMetodosPago = async (req: Request, res: Response) => {
 const postMetodosPago = async (req: Request, res: Response) => {
     try {
         const { ID_Usuario, Nombre_Titular, Numero_Tarjeta, Fecha_Vencimiento, Tipo_Tarjeta } = req.body;
-        // console.log(ID_Usuario, Nombre_Titular, Numero_Tarjeta, Fecha_Vencimiento, Tipo_Tarjeta);
         const Activa = true;
         const newMetodoPago = await MetodosPago.create({ ID_Usuario, Nombre_Titular, Numero_Tarjeta, Fecha_Vencimiento, Tipo_Tarjeta, Activa });
-        // console.log(newMetodoPago);
         res.status(201).json({message: "Metodo de Pago creado correctamente"});
     } catch (error) {
         handleHttp(res, 'ERROR_POST_METODOS_PAGO');
@@ -28,9 +26,7 @@ const postMetodosPago = async (req: Request, res: Response) => {
 const updateMetodosPago = async (req: Request, res: Response) => {
     try {
         const { ID_Tarjeta, Nombre_Titular, Numero_Tarjeta, Fecha_Vencimiento, Tipo_Tarjeta, Activa } = req.body;
-        // console.log(ID_Tarjeta, Nombre_Titular, Numero_Tarjeta, Fecha_Vencimiento, Tipo_Tarjeta, Activa );
         const actualizacion = await MetodosPago.update({ Nombre_Titular, Numero_Tarjeta, Fecha_Vencimiento, Tipo_Tarjeta, Activa }, { where: { ID: parseInt(ID_Tarjeta) } });
-        // console.log(actualizacion);
         res.status(200).json({message: "Metodo de Pago actualizado correctamente"});
     } catch (error) {
         handleHttp(res, 'ERROR_UPDATE_METODOS_PAGO');
@@ -40,7 +36,6 @@ const updateMetodosPago = async (req: Request, res: Response) => {
 const deleteMetodosPago = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        // console.log(id);
         await MetodosPago.destroy({ where: { ID: parseInt(id) } });
         res.status(200).json({message: "Metodo de Pago eliminado correctamente"});
     } catch (error) {

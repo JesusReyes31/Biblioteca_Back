@@ -47,7 +47,6 @@ const getResenas = async (req: Request, res: Response) => {
             raw: true
         });
         const resenas = resenasData
-        // console.log(resenas); // Aquí verás la información completa de la reseña y el nombre del usuario
         res.status(200).json(resenas);
     } catch (error) {
         handleHttp(res, 'ERROR_GET_RESEÑAS', error);
@@ -58,7 +57,6 @@ const getResenas = async (req: Request, res: Response) => {
 const postResena = async (req: Request, res: Response) => {
     try {
         const resenaData = req.body;
-        // console.log(resenaData);
         // Si pasa las verificaciones, se puede crear la reseña
         const newResena = await Resenas.create({
             ID_Libro: resenaData.ID_Libro, 
@@ -87,7 +85,6 @@ const putResena = async (req: Request, res: Response) => {
         // Actualizar la reseña
         resena.Calificacion = Calificacion;
         resena.Descripcion = Descripcion ;
-        // console.log(resena);
         await resena.save();
         res.json(resena);
     } catch (error) {

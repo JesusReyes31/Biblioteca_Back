@@ -187,7 +187,6 @@ const deleteFromCart = async (req: Request, res: Response) => {
 const deleteAllCart = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        console.log(id)
         const items = await Carrito.findAll({ where: { ID_Usuario: parseInt(id) } });
         items.forEach(async (item) => {
             await item.destroy();

@@ -8,7 +8,6 @@ dotenv.config();
 
 // const algorithm = 'aes-256-cbc'; // Algoritmo de encriptación
 // const key = Buffer.from(process.env.SECRET_IMGS!.slice(0, 32), 'utf-8'); // Clave de 32 bytes
-// console.log('Longitud de la clave:', key.length); // Esto debe imprimir 32
 
 // const encrypt = (text: string) => {
 //   const iv = randomBytes(16); // Vector de inicialización

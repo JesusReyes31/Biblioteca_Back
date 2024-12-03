@@ -6,9 +6,7 @@ import { Op } from "sequelize";
 import { user } from "../models/users.model";
 
 const registerCtrl = async (req:Request, res:Response) =>{
-    console.log('req.body: ',req.body)
     const responseUser = await registerNewUser(req.body);
-    // console.log('Respuesta',responseUser)
     res.send(responseUser);
 }
 
@@ -17,7 +15,6 @@ const loginCtrl = async (req:Request, res:Response) =>{
     if (typeof responseUser === 'string') {
         return res.status(403).send(responseUser);
     }
-    console.log('responseUser: ',responseUser.Datos)
     res
     /*.cookie('authToken', responseUser.Token, {
         httpOnly: true, // Solo accesible desde el servidor, no desde JavaScript

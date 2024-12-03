@@ -29,15 +29,12 @@ const io = new Server(httpServer, {
 
 // Configuración de Socket.IO
 io.on('connection', (socket) => {
-  console.log('Cliente conectado');
 
   socket.on('joinRoom', (userId) => {
     socket.join(`user_${userId}`);
-    console.log(`Usuario ${userId} unido a su sala`);
   });
 
   socket.on('disconnect', () => {
-    console.log('Cliente desconectado');
   });
 });
 

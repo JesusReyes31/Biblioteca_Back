@@ -92,7 +92,6 @@ const search = async (req: Request, res: Response) => {
                 ]
             }
         });
-        // console.log(busqueda)
         // Verificar si se encontraron resultados
         if (busqueda.length > 0) {
             res.json(busqueda);
@@ -107,7 +106,6 @@ const search = async (req: Request, res: Response) => {
 const resetpassword = async (req: Request, res: Response) => {
     const { newPassword } = req.body;
     const token = req.headers.authorization;
-    // console.log('Entró')
     try {
         if (!token) {
             return res.status(401).json({ message: 'No se proporcionó el token' });
@@ -139,8 +137,6 @@ const nodemail = async (req: Request, res: Response) => {
     try {
         const { Mail, Tipo } = req.body;
         let usuario;
-        console.log('Mail: ',Mail)
-        console.log('Tipo: ',Tipo)
         // Validar datos de entrada
         if (!Mail || !Tipo) {
             return res.status(400).json({ 
@@ -277,7 +273,6 @@ const prinAdminSuc = async (req:Request,res:Response) => {
             Venta.count({ where: { Entregado: 'No' } }) //Cuentas de Ventas sin entregar
         ]);
         const adminCounts = { clientes: clientesCount, inventario: inventarioCount, prestamos: prestamosCount, totalLibros: totalBooksCount, generos: distinctGenerosCount, reservas: reservasCount, prestamosTotal: prestamosTotalCount, prestamosPendientes: prestamosPendientesCount, totalVentas: totalVentasCount, ventasNoEntregadas: ventasNoEntregadasCount};
-        // console.log(adminCounts)
         res.json(adminCounts);
     } catch (err) {
         console.error('Error al ejecutar la consulta SQL:', err);
@@ -297,7 +292,6 @@ const prinAdmin = async (req:Request,res:Response) => {
             Book.count(), //Cuenta de Libros
         ]);
         const adminCounts = {Sucursales:sucs,Administradores_Sucursales:adminsSucs,Clientes:clientes,Personal_Inventario:inventario,Personal_Prestamo:prestamos,Libros:libros};
-        // console.log(adminCounts)
         res.json(adminCounts);
     } catch (err) {
         console.error('Error al ejecutar la consulta SQL:', err);
@@ -322,7 +316,6 @@ const prinGen = async (req:Request,res:Response) => {
             order: Sequelize.literal('NEWID()'), 
             limit: 4,
         });
-        // console.log(libros)
         // Verificar que se obtuvieron exactamente 4 registros
         if (libros.length !== 4) {
             return res.status(400).json({ 
@@ -342,7 +335,6 @@ const credencial = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const {Nombre} = req.body;
-        // console.log(id,Nombre)
         // Consulta a la base de datos usando Sequelize
         const User = await user.findOne({ where: { ID: parseInt(id), Nombre_Usuario: Nombre } });
         if (User) {
@@ -522,7 +514,6 @@ async function cargarImagenPorDefecto(
 const reportes = async (req:Request,res:Response) => {
     const { fechain, fechaf, genero, ID_Usuario } = req.body;
     const { reporte } = req.params;
-    // console.log("Reporte:", reporte, "Fecha In:", fechain, "FechaF:", fechaf, "Genero:", genero, "ID:", ID_Usuario);
 
     try {
         let nombre: string;
@@ -647,7 +638,6 @@ const reportes = async (req:Request,res:Response) => {
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Datos');
         XLSX.writeFile(workbook, nombre);
 
-        // console.log('Archivo Excel creado exitosamente');
         res.download(nombre, nombre, (err) => {
             if (err) {
                 console.error('Error al descargar el archivo:', err);

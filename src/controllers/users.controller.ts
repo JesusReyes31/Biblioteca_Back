@@ -107,7 +107,6 @@ const getSucForUser = async (req: Request, res: Response) => {
     try{
         const { id } = req.params;
         const sucursales = await Sucursales.findAll({ where: { ID_Usuario: parseInt(id) } });
-        // console.log(sucursales);
         res.status(200).json(sucursales);
     } catch (error) {
         handleHttp(res, 'ERROR_GET_USERS_BY_SUCURSAL');
@@ -119,7 +118,6 @@ const putUser = async (req: Request, res: Response) => {
     try{
         const { id } = req.params;
         const User = req.body;
-        // console.log(id,User);
         const idUser = await user.findByPk(parseInt(id));
         if(!idUser){
             return res.status(404).json({ message: "No existe ese usuario"})
@@ -137,7 +135,6 @@ const putUserImage = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const file = req.body; // Dependiendo de cómo configures multer
-        // console.log(file);
         if (!file) {
             return res.status(400).json({ message: "No se proporcionó ninguna imagen" });
         }
@@ -161,7 +158,6 @@ const putUserPassword = async (req: Request, res: Response) => {
     try{
         const { id } = req.params;
         const { Password } = req.body;
-        // console.log(id,Password);
         const idUser = await user.findByPk(parseInt(id));
         if(!idUser){
             return res.status(404).json({ message: "No existe ese usuario"})

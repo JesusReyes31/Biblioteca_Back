@@ -46,7 +46,6 @@ const getDetail = async (req: Request, res: Response) => {
         });
         return idSale ? res.json(idSale) : res.status(404).json({ message: "No existe ese Detalle de Venta"});
     } catch (error) {
-        console.log(error)
         handleHttp(res, 'ERROR_GET_DETAILSALE', error);
     }
 }
@@ -115,7 +114,6 @@ const postDetail = async(req: Request, res: Response) => {
         const factura = await transDatosFactura(venta, Detalles,usuario);
         facturapi.invoices.create(factura)
         .then(async invoice => {
-            console.log(invoice)
             await venta.update({ID_Factura:invoice.id})
         });
         res.status(201).json({

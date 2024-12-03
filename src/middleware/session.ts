@@ -13,7 +13,6 @@ interface CustomRequest extends Request {
 const checkAuth = async (req: CustomRequest, res: Response, next: NextFunction) => {
   // Obtener el token desde la cabecera Authorization
   const token = req.headers['authorization'];
-  // console.log('Token',token)
   if (!token) {
     return res.status(401).json({ message: 'Token no proporcionado' });
   }
@@ -27,7 +26,6 @@ const checkAuth = async (req: CustomRequest, res: Response, next: NextFunction) 
     }else{
       req.body.user.User.ID_Sucursal = req.body.ID_Sucursal;
     }
-    // console.log('Decodificado',req.body.user)
     // Si el token es válido, sigue con la siguiente función middleware o ruta
     next();
   } catch (error) {
@@ -44,7 +42,6 @@ const checkRole = (roles: string[]) => {
     // Extraemos el rol del usuario desde el token decodificado
     const Usuario = req.body.user as JwtPayload; 
     const Tipo_Usuario = Usuario.User.Tipo_Usuario;
-    // console.log(Tipo_Usuario)
     // Comprobamos si Tipo_Usuario está en los roles permitidos
     if (!roles.includes(Tipo_Usuario)) {
       return res.status(403).json({ message: 'Acceso denegado' });

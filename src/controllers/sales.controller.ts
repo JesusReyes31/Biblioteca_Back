@@ -62,7 +62,7 @@ const getVentasPendientes = async (req: Request, res: Response) => {
         });
 
     } catch (error) {
-        // console.log(error);
+        // (error);
         return res.status(500).json({
             message: "Error al obtener las ventas pendientes",
             error: error

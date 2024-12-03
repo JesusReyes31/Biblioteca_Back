@@ -59,7 +59,6 @@ export const checkPrestamosVencimiento = async () => {
                 fecha_devolucion: prestamo.Fecha_devolucion_prevista,
                 dias_restantes: diasRestantes
             };
-            // console.log(correo)
             await sendReminderEmail(correo);
             // Crear notificación
             await Notificacion.create({

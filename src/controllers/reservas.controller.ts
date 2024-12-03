@@ -12,7 +12,6 @@ import { Sucursales } from "../models/sucursales.model";
 const getReserva = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        // console.log(id)
         const reserva = await Reservas.findByPk(id);
         return reserva ? res.json(reserva) : res.status(404).json({ message: "No se encontró la Reserva" });
     } catch (error) {

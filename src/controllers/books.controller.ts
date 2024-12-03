@@ -45,7 +45,6 @@ const getBook = async (req: Request, res: Response) => {
 const getBooks = async (req: Request, res: Response) => {
     try {
         const { idSuc } = req.params;
-        console.log('idSuc: ',idSuc)
         let books;
         if(!idSuc){
             books = await Ejemplares.findAll({
@@ -75,7 +74,6 @@ const getBooks = async (req: Request, res: Response) => {
                 raw:true
             });
         }else{
-            // console.log('idSuc: ',idSuc)
             books = await Ejemplares.findAll({
                 where:{ID_Sucursal:parseInt(idSuc)},
                 attributes:['ID','ID_Libro','ID_Sucursal','Cantidad','Precio',
@@ -105,10 +103,8 @@ const getBooks = async (req: Request, res: Response) => {
                 raw:true
             });
         }
-        // console.log('books: ',books)
         res.status(200).json(books);
     } catch (error) {
-        console.log('error: ',error)
         handleHttp(res, 'ERROR_GET_BOOKS', error);
     }
 }
@@ -138,7 +134,6 @@ const getBooksDisponibles = async (req: Request, res: Response) => {
                 ['ID_Libro', 'DESC']
             ],
         }); 
-        console.log(books)
         res.status(200).json(books);
     } catch (error) {
         handleHttp(res, 'ERROR_GET_BOOKS_DISPONIBLES', error);
@@ -252,7 +247,6 @@ const postBook = async (req: Request, res: Response) => {
 
 const putBook = async (req: Request, res: Response) => {
     try {
-        console.log(req.body)
         const { id, idSuc } = req.params;
         let uploadResult;
         if(req.body.Imagen.includes('https://storage.googleapis.com/')){
@@ -260,7 +254,6 @@ const putBook = async (req: Request, res: Response) => {
         }else{
             uploadResult = await uploadImage(req, res);
         }
-        console.log(id,idSuc)
         if (!uploadResult.success || !uploadResult.url) {
             return res.status(400).json({ 
                 message: !uploadResult.success ? uploadResult.message : 'No se pudo obtener la URL de la imagen' 
@@ -281,7 +274,6 @@ const putBook = async (req: Request, res: Response) => {
             Cantidad: parseInt(req.body.Cantidad),
             Precio: parseFloat(req.body.Precio)
         };
-        // console.log(bookData,ejemplarData)
         const result = await sequelize.transaction(async (t) => {
             const book = await Book.findByPk(id, { transaction: t });
             const ejemplar = await Ejemplares.findOne({
@@ -345,7 +337,6 @@ const deleteBook = async (req: Request, res: Response) => {
 
 // const obtenerURL = async (req:Request,res:Response) => {
 //     const {Imagen} = req.body
-//     console.log(Imagen)
 //     const url = decrypt(Imagen);
 //     res.status(201).json({URL:url});
 // }

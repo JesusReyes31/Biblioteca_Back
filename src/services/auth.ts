@@ -30,7 +30,7 @@ const registerNewUser = async(body: any)=>{
         Activo: false
     });
     if(registerNewUser){
-        // console.log(body.Sucursal)
+        // (body.Sucursal)
         // Array de tipos de usuario que requieren registro en Personal
         const tiposPersonal = ['Inventario', 'Prestamos', 'Admin Sucursal'];
         
