@@ -45,7 +45,7 @@ const getBooksByGenre = async (req: Request, res: Response) => {
             },
             include: [{
                 model: Ejemplares,
-                attributes: ['Cantidad', 'ID_Sucursal','ID'],
+                attributes: ['Cantidad', 'ID_Sucursal','ID','Precio'],
                 include: [{
                     model: Sucursales,
                     as: 'Sucursales',
@@ -312,7 +312,7 @@ const prinGen = async (req:Request,res:Response) => {
         const libros = await Book.findAll({
             include: [{
                 model: Ejemplares,
-                attributes: ['Cantidad', 'ID_Sucursal','ID'],
+                attributes: ['Cantidad', 'ID_Sucursal','ID','Precio'],
                 include: [{
                     model: Sucursales,
                     as: 'Sucursales',

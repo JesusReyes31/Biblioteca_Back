@@ -35,37 +35,41 @@ const getUsers = async (req: Request, res: Response) => {
         }
 
         const allowedUserTypes = userTypeMapping[userType];
-
-        const users = await user.findAll({
-            attributes: [
-                'ID',
-                'Nombre_completo',
-                'CURP',
-                'Nombre_Usuario',
-                'Correo',
-                'Tipo_Usuario',
-                [Sequelize.col('Personal.ID_Sucursal'), 'ID_Sucursal'],
-            ],
-            include: [{
-                model: Personal,
-                attributes: [],
+        let users;
+        if(userType === 'Prestamos'){
+            users = await user.findAll({where:{Tipo_Usuario:allowedUserTypes}})
+        }else{
+            users = await user.findAll({
+                attributes: [
+                    'ID',
+                    'Nombre_completo',
+                    'CURP',
+                    'Nombre_Usuario',
+                    'Correo',
+                    'Tipo_Usuario',
+                    [Sequelize.col('Personal.ID_Sucursal'), 'ID_Sucursal'],
+                ],
                 include: [{
-                    model: Sucursales,
-                    attributes: []
+                    model: Personal,
+                    attributes: [],
+                    include: [{
+                        model: Sucursales,
+                        attributes: []
+                    }],
+                    required: false
                 }],
-                required: false
-            }],
-            where: {
-                Tipo_Usuario: allowedUserTypes,
-                ...(userType !== 'Admin' && {
-                    '$Personal.ID_Sucursal$': userSucursal
-                })
-            },
-            order: [
-                ['ID', 'DESC']
-            ],
-            raw: true
-        });
+                where: {
+                    Tipo_Usuario: allowedUserTypes,
+                    ...(userType !== 'Admin' && {
+                        '$Personal.ID_Sucursal$': userSucursal
+                    })
+                },
+                order: [
+                    ['ID', 'DESC']
+                ],
+                raw: true
+            });
+        }
         
         return res.status(200).json(users);
     } catch (error) {

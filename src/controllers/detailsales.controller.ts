@@ -5,6 +5,10 @@ import { Sequelize } from "sequelize";
 import { Book } from "../models/books.model";
 import { Ejemplares } from "../models/ejemplares.model";
 import { Sucursales } from "../models/sucursales.model";
+import { Venta } from "../models/sales.model";
+import { user } from "../models/users.model";
+import Facturapi from "facturapi";
+const facturapi = new Facturapi(`${process.env.FACTURAPI_KEY}`);
 
 const getDetail = async (req: Request, res: Response) => {
     try {
@@ -58,34 +62,62 @@ const getDetails = async (req: Request, res: Response) => {
 
 const postDetail = async(req: Request, res: Response) => {
     let newDetails: any[] = [];
+    let Detalles: any[] = [];
     try {
         const { id } = req.params;
         const Detalles = req.body.Detalles;
 
-        for (const detalle of Detalles) {
-            // Verificar stock del ejemplar
-            const ejemplar = await Ejemplares.findByPk(detalle.ID_Ejemplar);
-
-            if (!ejemplar || ejemplar.Cantidad < detalle.Cantidad) {
-                throw new Error(`Stock insuficiente para el ejemplar ${detalle.ID_Ejemplar}`);
+        Detalles.forEach(async (detalle:any) => {
+            try {
+                // Verificar stock del ejemplar
+                const ejemplar = await Ejemplares.findByPk(parseInt(detalle.ID_Ejemplar));
+                if (!ejemplar || ejemplar.Cantidad < detalle.Cantidad) {
+                    throw new Error(`Stock insuficiente para el ejemplar ${detalle.ID_Ejemplar}`);
+                }
+        
+                // Crear el detalle
+                const newDetail = await Detail.create({
+                    ID_Venta: parseInt(id),
+                    ID_Ejemplar: detalle.ID_Ejemplar,
+                    Cantidad: detalle.Cantidad,
+                    Precio: ejemplar.Precio // Usar el precio del ejemplar
+                });
+        
+                // Actualizar el stock
+                await ejemplar.update({
+                    Cantidad: ejemplar.Cantidad - detalle.Cantidad
+                });
+        
+                const libro = await Book.findByPk(ejemplar.ID_Libro);
+                if (libro) {
+                    Detalles.push({
+                        ID_Libro: ejemplar.ID_Libro,
+                        Titulo: libro.Titulo,
+                        Cantidad: detalle.Cantidad,
+                        Precio: ejemplar.Precio
+                    });
+                }
+        
+                newDetails.push(newDetail);
+            } catch (error) {
+                console.error('Error al procesar el detalle:', error);
             }
+        });        
 
-            // Crear el detalle
-            const newDetail = await Detail.create({
-                ID_Venta: parseInt(id),
-                ID_Ejemplar: detalle.ID_Ejemplar,
-                Cantidad: detalle.Cantidad,
-                Precio: ejemplar.Precio // Usar el precio del ejemplar
-            });
-
-            // Actualizar el stock
-            await ejemplar.update({
-                Cantidad: ejemplar.Cantidad - detalle.Cantidad
-            });
-
-            newDetails.push(newDetail);
+        const venta = await Venta.findByPk(parseInt(id));
+        if (!venta) {
+            throw new Error('Venta no encontrada');
         }
-
+        const usuario = await user.findByPk(venta.ID_Usuario)
+        if(!usuario){
+            throw new Error('Usuario no encontrado')
+        }
+        const factura = await transDatosFactura(venta, Detalles,usuario);
+        facturapi.invoices.create(factura)
+        .then(async invoice => {
+            console.log(invoice)
+            await venta.update({ID_Factura:invoice.id})
+        });
         res.status(201).json({
             message: "Detalles de Venta creados correctamente",
             detalles: newDetails
@@ -103,6 +135,48 @@ const postDetail = async(req: Request, res: Response) => {
         }
         handleHttp(res, 'ERROR_POSTING_DETAILSALE', error);
     }
+}
+
+// Funcion para retornar el JSON que se envía a Facturapi
+const transDatosFactura = async (venta:Venta,detalles:any,usuario:user) =>{
+    if (!venta) {
+        throw new Error('Venta no proporcionada');
+    }
+    
+    if (!detalles || detalles.length === 0) {
+        throw new Error('Detalles de la venta no proporcionados');
+    }
+    
+    // Transformar la venta en el formato que requiere FacturAPI
+    const factura = {
+        customer: {
+            legal_name: usuario.Nombre_completo, // Suponiendo que esto es fijo, puedes obtenerlo del cliente
+            email: usuario.Correo, // También puedes obtenerlo desde el cliente
+            tax_id: 'XAXX010101000', // RFC del cliente
+            tax_system: '601', // Regimen fiscal, ejemplo: "601" es el más común (Régimen general de ley)
+            address: {
+                zip: '81223', // Código postal del cliente
+            },
+        },
+        items: detalles.map((detalle:any) => ({
+            quantity: detalle.Cantidad,
+            product: {
+            description: detalle.Titulo, // Puedes obtener esto de una tabla de productos
+            product_key: "90111800", // ClaveProdServ del SAT, es necesario definirla para cada producto
+            price: detalle.Precio,
+            taxes: [
+                {
+                type: 'IVA',
+                rate: 0.16, // Tasa de IVA del producto
+                },
+            ],
+            },
+        })),
+        use: 'S01', // Uso del CFDI, puedes ajustarlo según el tipo de factura
+        payment_form: venta.ID_Metodo_Pago === null ? '01':'28', // Forma de pago, en este caso "Tarjeta de débito"
+    };
+
+    return factura;
 }
 
 const putDetail = async (req: Request, res: Response) => {

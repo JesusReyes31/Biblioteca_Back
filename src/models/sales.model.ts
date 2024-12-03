@@ -10,6 +10,7 @@ interface VentaAttributes {
     Total: number;
     Entregado: "Si" | "No";
     ID_Metodo_Pago: number;
+    ID_Factura: string;
 }
 
 // Atributos opcionales para la creación de un usuario
@@ -24,6 +25,7 @@ class Venta extends Model<VentaAttributes, VentaCreationAttributes> implements V
     public Total!: number;
     public Entregado!:"Si" | "No";
     public ID_Metodo_Pago!: number;
+    public ID_Factura!: string;
 }
 
 // Inicialización del modelo
@@ -59,6 +61,10 @@ Venta.init({
         type: DataTypes.INTEGER,
         allowNull: true
     },
+    ID_Factura:{
+        type: DataTypes.STRING(300),
+        allowNull:true
+    }
 }, {
     sequelize,
     tableName: 'Ventas', 

@@ -11,6 +11,10 @@ import { Prestamos } from "../models/Prestamos.model";
 import { Ejemplares } from "../models/ejemplares.model";
 import { Sucursales } from "../models/sucursales.model";
 import { Op } from 'sequelize';
+import Facturapi from "facturapi";
+import { error } from "console";
+import { Pago_Pendiente } from "../models/pagos_pendientes.model";
+const facturapi = new Facturapi(`${process.env.FACTURAPI_KEY}`);
 
 const generarRecibo = async (req: Request, res: Response) => {
     try {
@@ -243,8 +247,45 @@ const generarRecibo = async (req: Request, res: Response) => {
 };
 
 const generarFactura = async (req: Request, res: Response) => {
-    
-}
+    try {
+        const { id } = req.params;
+        const venta = await Venta.findByPk(parseInt(id));
+        
+        if (!venta?.ID_Factura) {
+            return res.status(404).json({ message: "Factura no encontrada" });
+        }
+
+        const pendiente = await Pago_Pendiente.findOne({where:{ID_Venta:venta.ID_Venta}});
+        if(pendiente){
+            return res.status(404).json({ message: "No se puede enviar factura, aun no se ha realizado el pago" });
+        }
+
+        const response = await fetch(
+            `https://www.facturapi.io/v2/invoices/${venta.ID_Factura}/pdf`,
+            {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${process.env.FACTURAPI_KEY}`
+                }
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`Error al obtener la factura: ${response.statusText}`);
+        }
+
+        const buffer = Buffer.from(await response.arrayBuffer());
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=factura-${venta.ID_Factura}.pdf`);
+        res.setHeader('Content-Length', buffer.length);
+        res.send(buffer);
+
+    } catch (error) {
+        console.error('Error al generar factura:', error);
+        handleHttp(res, 'ERROR_GENERAR_FACTURA');
+    }
+};
 
 const generarInformePrestamos = async (req: Request, res: Response) => {
     try {
@@ -727,4 +768,17 @@ const generarReporte = async (req: Request, res: Response) => {
     }
 };
 
-export { generarRecibo, generarInformePrestamos, generarReporte };
+const enviarFactura = async (req: Request, res: Response) => {
+    try{
+        const {id} = req.body;
+        const venta = await Venta.findByPk(parseInt(id));
+        await facturapi.invoices.sendByEmail(`${venta?.ID_Factura}`);
+        res.status(200).json({message: 'Factura enviada correctamente'});
+    }catch(error){
+        console.log(error);
+        handleHttp(res, 'ERROR_ENVIAR_FACTURA');
+    }
+
+}
+
+export { generarRecibo, generarInformePrestamos, generarReporte,generarFactura, enviarFactura };

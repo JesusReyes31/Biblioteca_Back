@@ -45,7 +45,7 @@ const getBook = async (req: Request, res: Response) => {
 const getBooks = async (req: Request, res: Response) => {
     try {
         const { idSuc } = req.params;
-        // console.log('idSuc: ',idSuc)
+        console.log('idSuc: ',idSuc)
         let books;
         if(!idSuc){
             books = await Ejemplares.findAll({
