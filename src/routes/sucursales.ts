@@ -2,7 +2,7 @@ import  { Router,Request, Response } from "express";
 import {getSucursal,getSucursales,postSucursal,putSucursal,deleteSucursal} from "../controllers/sucursales.controller";
 import { checkAuth, checkRole } from "../middleware/session";
 const router = Router();
-router.get('/',checkAuth,checkRole(['Admin','Admin Sucursal','Inventario','Prestamos']),getSucursales)
+router.get('/',checkAuth,getSucursales)
 router.get('/:id',checkAuth,checkRole(['Admin','Admin Sucursal']),getSucursal)
 router.post('/',checkAuth,checkRole(['Admin']),postSucursal) 
 router.put('/:id',checkAuth,checkRole(['Admin']),putSucursal)

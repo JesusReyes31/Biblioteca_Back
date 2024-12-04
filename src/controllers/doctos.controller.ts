@@ -506,10 +506,13 @@ const generarReporte = async (req: Request, res: Response) => {
     try {
         const { tipo, fechaInicio, fechaFin } = req.body;
         let data: any[] = [];
+        
         // Consultas según el tipo de reporte
         switch (tipo) {
             case 'inventario':
+                const whereClause = req.body.user.User.ID_Sucursal ? { ID_Sucursal: req.body.user.User.ID_Sucursal } : {};
                 data = await Ejemplares.findAll({
+                    where: whereClause,
                     attributes: [
                         [Sequelize.col('Book.Titulo'), 'Titulo'],
                         [Sequelize.col('Book.Autor'), 'Autor'],
@@ -521,16 +524,28 @@ const generarReporte = async (req: Request, res: Response) => {
                     include: [
                         {
                             model: Book,
-                            attributes: []
+                            attributes: [],
+                            required: true
                         },
                         {
                             model: Sucursales,
                             as: 'Sucursales',
-                            attributes: []
+                            attributes: [],
+                            required: true
                         }
                     ],
                     raw: true
                 });
+
+                // Formatear los datos para el reporte
+                data = data.map(item => ({
+                    'Título': item.Titulo,
+                    'Autor': item.Autor,
+                    'ISBN': item.ISBN,
+                    'Sucursal': item.Sucursal,
+                    'Cantidad': item.Cantidad,
+                    'Precio': `$${item.Precio.toFixed(2)}`
+                }));
                 break;
 
             case 'libros-genero':
@@ -681,79 +696,156 @@ const generarReporte = async (req: Request, res: Response) => {
                 return res.status(400).json({ message: 'Tipo de reporte no válido' });
         }
 
-        // Generar PDF con los datos
+        // Configuración del PDF
         const pdfDoc = await PDFDocument.create();
-        let page:any = pdfDoc.addPage([600, 800]);
+        let page = pdfDoc.addPage([800, 1000]); // Página más grande
         const { width, height } = page.getSize();
-        const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
         const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-        // Título del reporte
-        page.drawText(`Reporte: ${tipo.toUpperCase()}`, {
-            x: 50,
-            y: height - 50,
-            size: 20,
-            font: helveticaBold
+        // Colores
+        const primaryColor = rgb(0.12, 0.29, 0.49);  // Azul oscuro
+        const secondaryColor = rgb(0.93, 0.95, 0.98); // Gris muy claro
+        const textColor = rgb(0.2, 0.2, 0.2);
+
+        // Encabezado
+        page.drawRectangle({
+            x: 0,
+            y: height - 100,
+            width,
+            height: 100,
+            color: primaryColor
         });
 
-        // Fecha de generación
+        // Título
+        page.drawText(`REPORTE: ${tipo.toUpperCase()}`, {
+            x: 50,
+            y: height - 60,
+            size: 24,
+            font: helveticaBold,
+            color: rgb(1, 1, 1)
+        });
+
+        // Información del reporte
         const fechaGeneracion = new Date().toLocaleDateString();
         page.drawText(`Fecha de generación: ${fechaGeneracion}`, {
             x: 50,
-            y: height - 80,
+            y: height - 85,
             size: 12,
-            font: helveticaFont
+            font: helvetica,
+            color: rgb(1, 1, 1)
         });
 
-        // Contenido del reporte (adaptar según el tipo)
-        let yPosition = height - 120;
+        if (fechaInicio && fechaFin) {
+            page.drawText(`Período: ${new Date(fechaInicio).toLocaleDateString()} - ${new Date(fechaFin).toLocaleDateString()}`, {
+                x: width - 250,
+                y: height - 85,
+                size: 12,
+                font: helvetica,
+                color: rgb(1, 1, 1)
+            });
+        }
+
+        // Configuración de la tabla
+        let yPosition = height - 150;
         const margin = 50;
-        const lineHeight = 20;
+        const columnGap = 20;
+        let rowCount = 0;
+        const rowsPerPage = 25;
+
+        // Obtener las columnas del primer elemento
+        const columns = data.length > 0 ? Object.keys(data[0]) : [];
+        const columnWidth = (width - (2 * margin) - (columnGap * (columns.length - 1))) / columns.length;
+
+        const drawTableHeader = (yPos: number) => {
+            // Fondo del encabezado
+            page.drawRectangle({
+                x: margin - 5,
+                y: yPos - 5,
+                width: width - (2 * margin) + 10,
+                height: 30,
+                color: primaryColor
+            });
+
+            let xPos = margin;
+            columns.forEach(column => {
+                page.drawText(column.toUpperCase(), {
+                    x: xPos,
+                    y: yPos + 7,
+                    size: 11,
+                    font: helveticaBold,
+                    color: rgb(1, 1, 1)
+                });
+                xPos += columnWidth + columnGap;
+            });
+            return yPos - 35;
+        };
+
+        yPosition = drawTableHeader(yPosition);
 
         // Función auxiliar para limpiar texto
         const limpiarTexto = (texto: any): string => {
             if (texto === null || texto === undefined) return '';
-            // Convertir a string y eliminar caracteres especiales
             return String(texto)
                 .replace(/[\u200B-\u200F\uFEFF]/g, '') // Elimina caracteres de formato invisible
                 .replace(/[^\x20-\x7E\xA0-\xFF]/g, '') // Mantiene solo caracteres imprimibles básicos
                 .trim();
         };
 
+        // Dibujar filas
         data.forEach((item, index) => {
-            if (yPosition < margin + 50) {
-                const newPage = pdfDoc.addPage([600, 800]);
-                yPosition = height - margin;
-                page = newPage;
+            if (rowCount >= rowsPerPage) {
+                page = pdfDoc.addPage([800, 1000]);
+                yPosition = height - 150;
+                yPosition = drawTableHeader(yPosition);
+                rowCount = 0;
             }
 
-            Object.entries(item).forEach(([key, value]) => {
-                try {
-                    const textoLimpio = `${limpiarTexto(key)}: ${limpiarTexto(value)}`;
-                    
-                    // Verificar si hay suficiente espacio en la página
-                    if (yPosition < margin + 50) {
-                        const newPage = pdfDoc.addPage([600, 800]);
-                        yPosition = height - margin;
-                        page = newPage;
-                    }
+            // Fondo alternado para las filas
+            if (index % 2 === 0) {
+                page.drawRectangle({
+                    x: margin - 5,
+                    y: yPosition - 5,
+                    width: width - (2 * margin) + 10,
+                    height: 25,
+                    color: secondaryColor
+                });
+            }
 
-                    page.drawText(textoLimpio, {
-                        x: margin,
-                        y: yPosition,
-                        size: 10,
-                        font: helveticaFont,
-                        lineHeight: lineHeight
-                    });
-                    
-                    yPosition -= lineHeight;
-                } catch (error) {
-                    console.warn(`Error al procesar campo ${key}:`, error);
-                    // Continuar con el siguiente campo
-                }
+            let xPos = margin;
+            columns.forEach(key => {
+                const value = limpiarTexto(item[key]); // Aplicamos la limpieza aquí
+                page.drawText(value.substring(0, 30), {
+                    x: xPos,
+                    y: yPosition + 5,
+                    size: 10,
+                    font: helvetica,
+                    color: textColor
+                });
+                xPos += columnWidth + columnGap;
             });
-            yPosition -= 10; // Espacio entre registros
+
+            yPosition -= 30;
+            rowCount++;
         });
+
+        // Pie de página
+        const drawFooter = (pageNum: number, totalPages: number) => {
+            page.drawText(`Página ${pageNum} de ${totalPages}`, {
+                x: width - 100,
+                y: 30,
+                size: 10,
+                font: helvetica,
+                color: textColor
+            });
+        };
+
+        // Numerar páginas
+        const totalPages = Math.ceil(data.length / rowsPerPage);
+        for (let i = 0; i < totalPages; i++) {
+            const currentPage = pdfDoc.getPage(i);
+            drawFooter(i + 1, totalPages);
+        }
 
         const pdfBytes = await pdfDoc.save();
         
@@ -762,6 +854,7 @@ const generarReporte = async (req: Request, res: Response) => {
         res.send(Buffer.from(pdfBytes));
 
     } catch (error) {
+        console.log(error);
         handleHttp(res, 'ERROR_GENERAR_REPORTE');
     }
 };

@@ -115,17 +115,44 @@ const getSucForUser = async (req: Request, res: Response) => {
 
 //El post está dentro del archivo auth.controller ya que sería un controlador para el logi
 const putUser = async (req: Request, res: Response) => {
-    try{
+    try {
         const { id } = req.params;
         const User = req.body;
+        console.log(User);
         const idUser = await user.findByPk(parseInt(id));
-        if(!idUser){
-            return res.status(404).json({ message: "No existe ese usuario"})
-        } 
+        if (!idUser) {
+            return res.status(404).json({ message: "No existe ese usuario" });
+        }
         await idUser.update(User);
-        res.json({ message: "Información actualizada exitosamente"});
+        await idUser.save();
 
-    }catch(error){
+        const personal = await Personal.findOne({ where: { ID_Usuario: parseInt(User.ID) } });
+        if (personal) {
+            await personal.update(User);
+            await personal.save();
+        }
+
+        // Actualizar la sucursal anterior a NULL
+        const sucursalAnterior = await Sucursales.findOne({ where: { ID_Usuario: parseInt(User.ID) } });
+        if (sucursalAnterior) {
+            await sucursalAnterior.update({ 
+                ID_Usuario: Sequelize.literal('NULL') 
+            });
+            await sucursalAnterior.save();
+        }
+
+        // Asignar el usuario a la nueva sucursal
+        if (User.ID_Sucursal) {
+            const nuevaSucursal = await Sucursales.findOne({ where: { ID: parseInt(User.ID_Sucursal) } });
+            if (nuevaSucursal) {
+                await nuevaSucursal.update({ ID_Usuario: parseInt(User.ID) });
+                await nuevaSucursal.save();
+            }
+        }
+
+        res.json({ message: "Información actualizada exitosamente" });
+
+    } catch (error) {
         handleHttp(res, 'ERROR_UPDATING_USERS');
     }
 }

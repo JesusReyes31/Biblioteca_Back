@@ -69,7 +69,6 @@ const search = async (req: Request, res: Response) => {
         if (!clave) {
             return res.status(400).json({ message: 'Debe proporcionar una clave de búsqueda' });
         }
-        // Consulta utilizando Sequelize para buscar en los campos título, autor, género y resumen
         const busqueda = await Book.findAll({
             where: {
                 [Op.or]: [
@@ -90,8 +89,40 @@ const search = async (req: Request, res: Response) => {
                     { Genero: { [Op.like]: `${clave}` } },
                     { Resumen: { [Op.like]: `${clave}` } }
                 ]
-            }
+            },
+            include: [{
+                model: Ejemplares,
+                attributes: ['Cantidad', 'ID_Sucursal','ID','Precio'],
+                include: [{
+                    model: Sucursales,
+                    as: 'Sucursales',
+                    attributes: ['Nombre']
+                }]
+            }]
         });
+        // // Consulta utilizando Sequelize para buscar en los campos título, autor, género y resumen
+        // const busquedas = await Ejemplares.findAll({
+        //     attributes: ['ID_Libro','ID_Sucursal','ID','Cantidad','Precio',
+        //         [Sequelize.col('Book.Titulo'),'Titulo'],
+        //         [Sequelize.col('Book.Autor'),'Autor'],
+        //         [Sequelize.col('Book.Genero'),'Genero'],
+        //         [Sequelize.col('Book.ISBN'),'ISBN'],
+        //         [Sequelize.col('Book.Anio_publicacion'),'Anio_publicacion'],
+        //         [Sequelize.col('Book.Imagen'),'Imagen'],
+        //         [Sequelize.col('Book.Resumen'),'Resumen'],
+        //         [Sequelize.col('Sucursales.Nombre'),'Sucursal']
+        //     ],
+        //     include: [{
+        //         model: Book,
+        //         attributes: [],
+        //         required: true,
+                
+        //     },{
+        //         model: Sucursales,
+        //         as: 'Sucursales',
+        //         attributes: []
+        //     }]
+        // });
         // Verificar si se encontraron resultados
         if (busqueda.length > 0) {
             res.json(busqueda);
@@ -334,134 +365,212 @@ const prinGen = async (req:Request,res:Response) => {
 const credencial = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const {Nombre} = req.body;
-        // Consulta a la base de datos usando Sequelize
+        const { Nombre } = req.body;
+        
         const User = await user.findOne({ where: { ID: parseInt(id), Nombre_Usuario: Nombre } });
+        
         if (User) {
-            // Si el usuario existe, generar la credencial en PDF
             const pdfPath = `./credenciales/${id}.pdf`;
-            // Si el PDF no existe, crearlo
+            
             if (!fs.existsSync(pdfPath)) {
                 const pdfDoc = await PDFDocument.create();
-                const page = pdfDoc.addPage([400, 600]); // Tamaño personalizado para la credencial
-                // Establecer la fuente y el estilo
-                const helveticaFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-                const fontSizeTitle = 24;
-                const fontSizeText = 16;
-                // Establecer colores
-                const backgroundColor = rgb(0.8, 0.9, 1); // Color de fondo (azul claro)
-                const textColor = rgb(0, 0, 0); // Color de texto (negro)
-                // Dibujar un rectángulo de fondo
+                const page = pdfDoc.addPage([600, 400]); // Formato horizontal
+                
+                // Fuentes
+                const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+                const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+                
+                // Esquema de colores modernos
+                const primaryColor = rgb(0.12, 0.29, 0.49);    // Azul oscuro
+                const secondaryColor = rgb(0.97, 0.97, 0.97);  // Gris muy claro
+                const accentColor = rgb(0.0, 0.47, 0.75);      // Azul medio
+                const textColor = rgb(0.2, 0.2, 0.2);          // Gris oscuro
+                const whiteColor = rgb(1, 1, 1);               // Blanco
+
+                // Fondo principal
                 page.drawRectangle({
                     x: 0,
                     y: 0,
                     width: page.getWidth(),
                     height: page.getHeight(),
-                    color: backgroundColor,
+                    color: secondaryColor,
                 });
-                // Establecer el título "IDENTIFICACIÓN"
-                page.drawText('IDENTIFICACIÓN', {
-                    x: 100,
+
+                // Barra superior
+                page.drawRectangle({
+                    x: 0,
+                    y: page.getHeight() - 100,
+                    width: page.getWidth(),
+                    height: 100,
+                    color: primaryColor,
+                });
+
+                // Título
+                page.drawText('BIBLIOTECA GETBOOK', {
+                    x: 20,
                     y: page.getHeight() - 60,
-                    font: helveticaFont,
-                    size: fontSizeTitle,
-                    color: textColor,
+                    font: helveticaBold,
+                    size: 28,
+                    color: whiteColor,
                 });
-                // Añadir información del usuario
-                page.drawText(`Nombre: ${User.Nombre_completo}`, {
-                    x: 50,
-                    y: page.getHeight() - 120,
-                    font: helveticaFont,
-                    size: fontSizeText,
-                    color: textColor,
+
+                // Subtítulo
+                page.drawText('CREDENCIAL DE USUARIO', {
+                    x: 20,
+                    y: page.getHeight() - 85,
+                    font: helvetica,
+                    size: 14,
+                    color: whiteColor,
                 });
-                page.drawText(`Tipo de Usuario: ${User.Tipo_Usuario}`, {
-                    x: 50,
-                    y: page.getHeight() - 150,
-                    font: helveticaFont,
-                    size: fontSizeText,
-                    color: textColor,
+
+                // Marco decorativo para la información
+                page.drawRectangle({
+                    x: 220,
+                    y: 60,
+                    width: 360,
+                    height: 240,
+                    color: whiteColor,
+                    borderColor: accentColor,
+                    borderWidth: 2,
+                    opacity: 0.9,
                 });
-                page.drawText(`ID: ${User.ID}`, {
-                    x: 50,
-                    y: page.getHeight() - 180,
-                    font: helveticaFont,
-                    size: fontSizeText,
-                    color: textColor,
+
+                // Sombra decorativa
+                page.drawRectangle({
+                    x: 223,
+                    y: 57,
+                    width: 360,
+                    height: 240,
+                    color: rgb(0, 0, 0),
+                    opacity: 0.1,
                 });
-                const FIXED_WIDTH = 150;  // Ancho fijo en pixels
-                const FIXED_HEIGHT = 150; // Alto fijo en pixels
-                if (User.Imagen) {
-                    try {
-                        const response = await axios.get(User.Imagen, { 
-                            responseType: 'arraybuffer',
-                            headers: {
-                                'Accept': 'image/*',
-                                'Cache-Control': 'no-cache'
-                            }
-                        });
-                        
-                        const imageBytes = Buffer.from(response.data);
-                        const contentType = response.headers['content-type']?.toLowerCase() || '';
-                        
-                        // Dimensiones fijas para todas las imágenes
 
-                        let image;
-                        try {
-                            // Primero convertimos cualquier formato a PNG con las dimensiones deseadas
-                            const sharp = require('sharp');
-                            const processedBuffer = await sharp(imageBytes)
-                                .resize(FIXED_WIDTH, FIXED_HEIGHT, {
-                                    fit: 'cover',     // Recorta la imagen para llenar las dimensiones
-                                    position: 'center' // Centra el recorte
-                                })
-                                .png()
-                                .toBuffer();
+                const FIXED_WIDTH = 180;
+                const FIXED_HEIGHT = 200;
+                const IMAGE_WIDTH = 160;
+                const IMAGE_HEIGHT = 180;
 
-                            // Embeber la imagen procesada en el PDF
-                            image = await pdfDoc.embedPng(processedBuffer);
-
-                            // Calcular la posición para centrar la imagen
-                            const xPosition = (page.getWidth() - FIXED_WIDTH) / 2;
-                            const yPosition = page.getHeight() - 330; // Ajusta esta posición según necesites
-
-                            // Dibujar la imagen con las dimensiones fijas
-                            page.drawImage(image, {
-                                x: xPosition,
-                                y: yPosition,
-                                width: FIXED_WIDTH,
-                                height: FIXED_HEIGHT
-                            });
-
-                        } catch (embedError) {
-                            console.error('Error al procesar la imagen:', embedError);
-                            await cargarImagenPorDefecto(pdfDoc, page, FIXED_WIDTH, FIXED_HEIGHT);
-                        }
-                    } catch (error) {
-                        console.error('Error al cargar la imagen:', error);
-                        await cargarImagenPorDefecto(pdfDoc, page, FIXED_WIDTH, FIXED_HEIGHT);
-                    }
+                // Marco para la foto (contenedor)
+                page.drawRectangle({
+                    x: 19,
+                    y: 79,
+                    width: FIXED_WIDTH + 2,
+                    height: FIXED_HEIGHT + 2,
+                    borderColor: accentColor,
+                    borderWidth: 2,
+                    color: whiteColor,
+                });
+                if(!User.Imagen){
+                    User.Imagen = 'https://firebasestorage.googleapis.com/v0/b/biblioteca-8fa9c.appspot.com/o/Perfil%2Fuser.png?alt=media&token=42d09dc5-8ef9-4351-adb9-440dec5c01d1'
                 }
-                // Insertar código de barras
-                const barcodeOptions = { bcid: 'code128', text: id.toString() };
-                // Convertir el código de barras a una imagen
+
+                const response = await axios.get(User.Imagen, { 
+                    responseType: 'arraybuffer',
+                    headers: {
+                        'Accept': 'image/*',
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+                
+                const sharp = require('sharp');
+                const processedBuffer = await sharp(Buffer.from(response.data))
+                    .resize(IMAGE_WIDTH+10, IMAGE_HEIGHT+10, {
+                        fit: 'cover',
+                        position: 'center'
+                    })
+                    .png()
+                    .toBuffer();
+
+                const image = await pdfDoc.embedPng(processedBuffer);
+                
+                // Centrar la imagen en el contenedor
+                const xOffset = (FIXED_WIDTH - IMAGE_WIDTH) / 2;
+                const yOffset = (FIXED_HEIGHT - IMAGE_HEIGHT) / 2;
+                
+                page.drawImage(image, {
+                    x: 20 + xOffset,
+                    y: 80 + yOffset,
+                    width: IMAGE_WIDTH,
+                    height: IMAGE_HEIGHT,
+                });
+                // Información del usuario con mejor formato
+                const drawUserInfo = (label: string, value: string, yPos: number) => {
+                    // Fondo para la etiqueta
+                    page.drawRectangle({
+                        x: 240,
+                        y: yPos - 5,
+                        width: 100,
+                        height: 20,
+                        color: accentColor,
+                    });
+
+                    // Etiqueta
+                    page.drawText(label, {
+                        x: 245,
+                        y: yPos,
+                        font: helveticaBold,
+                        size: 12,
+                        color: whiteColor,
+                    });
+
+                    // Valor
+                    page.drawText(value, {
+                        x: 350,
+                        y: yPos,
+                        font: helvetica,
+                        size: 14,
+                        color: textColor,
+                    });
+                };
+
+                drawUserInfo('NOMBRE:', User.Nombre_completo, 260);
+                drawUserInfo('USUARIO:', User.Tipo_Usuario, 220);
+                drawUserInfo('ID:', User.ID.toString(), 180);
+
+                // Código de barras mejorado
+                const barcodeOptions = { 
+                    bcid: 'code128',
+                    text: id.toString(),
+                    height: 15,
+                    includetext: false,
+                    textxalign: 'center' as 'center',
+                };
+                
                 const barcodeBuffer = await bwipjs.toBuffer(barcodeOptions);
-                const barcodeImage = await pdfDoc.embedPng(barcodeBuffer);          
-                // Insertar la imagen del código de barras
+                const barcodeImage = await pdfDoc.embedPng(barcodeBuffer);
+                
+                // Marco para el código de barras
+                page.drawRectangle({
+                    x: 239,
+                    y: 69,
+                    width: 322,
+                    height: 62,
+                    color: whiteColor,
+                });
+
                 page.drawImage(barcodeImage, {
-                    x: 100,
-                    y: page.getHeight() - 430,
-                    width: 200,
+                    x: 240,
+                    y: 70,
+                    width: 320,
                     height: 60,
                 });
-                // Guardar el PDF en la carpeta "credenciales"
+
+                // Pie de página
+                page.drawText('Esta credencial es personal e intransferible', {
+                    x: 20,
+                    y: 30,
+                    font: helvetica,
+                    size: 10,
+                    color: textColor,
+                });
+
                 const pdfBytes = await pdfDoc.save();
                 fs.writeFileSync(pdfPath, pdfBytes);
             }
-            // Leer el contenido del PDF y enviarlo como respuesta
+
             const pdfContent = fs.readFileSync(pdfPath);
-            //Eliminar el archivo temporal
             fs.unlinkSync(pdfPath);
+            
             res.setHeader('Content-Disposition', 'inline; filename="Credencial_usuario.pdf"');
             res.contentType('application/pdf');
             res.send(pdfContent);
@@ -482,7 +591,7 @@ async function cargarImagenPorDefecto(
     height: number
 ) {
     try {
-        const defaultImagePath = './assets/default-profile.png';
+        const defaultImagePath = 'firebase/user.png';
         if (fs.existsSync(defaultImagePath)) {
             const sharp = require('sharp');
             const processedBuffer = await sharp(defaultImagePath)

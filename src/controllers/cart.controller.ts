@@ -92,11 +92,12 @@ const getCarts = async (req: Request, res: Response) => {
 // Para agregar un artículo al carrito
 const addToCart = async (req: Request, res: Response) => {
     try {
-        const { ID_Usuario, ID_Ejemplar, Cantidad } = req.body;
-        
+        let { ID_Usuario, ID_Ejemplar, Cantidad } = req.body;
+        ID_Usuario = parseInt(ID_Usuario);
+        ID_Ejemplar = parseInt(ID_Ejemplar);
+        Cantidad = parseInt(Cantidad);
         // Verificar si el ejemplar existe
         const ejemplar = await Ejemplares.findByPk(ID_Ejemplar);
-
         if (!ejemplar) {
             return res.status(404).json({ 
                 message: "El ejemplar no está disponible" 
@@ -108,7 +109,6 @@ const addToCart = async (req: Request, res: Response) => {
                 message: "No hay suficientes ejemplares disponibles" 
             });
         }
-
         // Buscar si ya existe el item en el carrito
         const itemExistente = await Carrito.findOne({
             where: {
@@ -125,13 +125,11 @@ const addToCart = async (req: Request, res: Response) => {
                     message: "La cantidad solicitada excede el stock disponible" 
                 });
             }
-
             // Si existe, actualizar la cantidad
             itemExistente.Cantidad = nuevaCantidadTotal;
             await itemExistente.save();
             return res.status(200).json(itemExistente);
         }
-
         // Si no existe, crear nuevo item
         const nuevoItem = await Carrito.create({ 
             ID_Usuario: parseInt(ID_Usuario), 

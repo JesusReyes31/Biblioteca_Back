@@ -27,10 +27,11 @@ const getSucursales = async (req:Request,res:Response)=>{
 const postSucursal = async (req:Request,res:Response)=>{
     try{
         const Suc = req.body;
-        const admin = await Sucursales.findOne({where:{ID_Usuario:Suc.ID_Usuario}});
-        if(admin){
-            return res.status(404).json({ message: "El Administrador Seleccionado ya tiene sucursal asignada"})
-        }
+        console.log(Suc);
+        // const admin = await Sucursales.findOne({where:{ID_Usuario:Suc.ID_Usuario}});
+        // if(admin){
+        //     return res.status(404).json({ message: "El Administrador Seleccionado ya tiene sucursal asignada"})
+        // }
         const nombre = await Sucursales.findOne({where:{Nombre:Suc.Nombre}});
         if(nombre){
             return res.status(404).json({ message: "El Nombre de la sucursal ya existe"})
@@ -38,6 +39,7 @@ const postSucursal = async (req:Request,res:Response)=>{
         const newSuc = await Sucursales.create(Suc);
         res.status(201).json(newSuc);
     } catch(error){
+        console.log(error);
         handleHttp(res, 'ERROR_POSTING_SUCURSAL',error)
     }
 }

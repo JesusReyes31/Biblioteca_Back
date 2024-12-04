@@ -174,8 +174,26 @@ const postPrestamo = async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
 
+        // Verificar disponibilidad del ejemplar
+        const ejmp = await Ejemplares.findByPk(idEjemplar);
+
+        if (!ejmp || (ejmp.Cantidad <= 0)) {
+            return res.status(400).json({ 
+                message: 'No hay ejemplares disponibles en esta sucursal 😞' 
+            });
+        }
+
+        const Sucursal:any = await Sucursales.findByPk(ejmp.ID_Sucursal);
+        if(!Sucursal){
+            return res.status(400).json({ message: 'Ejemplar no disponible en esta sucursal, disponible en sucursal: '+Sucursal.Nombre });
+        }
+        
+        if(Sucursal.ID !== req.body.user.User.ID_Sucursal){
+            return res.status(400).json({ message: 'Ejemplar no disponible en esta sucursal, disponible en sucursal: '+Sucursal?.Nombre });
+        }
+
         // Verificar si el usuario ya tiene un préstamo activo del mismo ejemplar
-        const prestamoExistente = await Prestamos.findOne({
+        const prestamoExistente:any = await Prestamos.findOne({
             where: {
                 ID_Ejemplar: idEjemplar,
                 ID_Usuario: idusuario,
@@ -197,13 +215,9 @@ const postPrestamo = async (req: Request, res: Response) => {
             }
         });
 
-        // Verificar disponibilidad del ejemplar
-        const ejemplar = await Ejemplares.findByPk(idEjemplar);
-
-        if (!ejemplar || (ejemplar.Cantidad <= 0 && !reserva)) {
-            return res.status(400).json({ 
-                message: 'No hay ejemplares disponibles en esta sucursal 😞' 
-            });
+        // Si había una reserva, eliminarla
+        if (reserva) {
+            await reserva.destroy();
         }
 
         // Crear el préstamo
@@ -219,14 +233,10 @@ const postPrestamo = async (req: Request, res: Response) => {
             Estado: 'Pendiente',
         });
 
-        // Si había una reserva, eliminarla
-        if (reserva) {
-            await reserva.destroy();
-        }
 
         // Actualizar cantidad de ejemplares
-        await ejemplar.update({
-            Cantidad: ejemplar.Cantidad - 1
+        await ejmp.update({
+            Cantidad: ejmp.Cantidad - 1
         });
 
         res.status(201).json({ message: 'Libro prestado 😊', prestamo: nuevoPrestamo });

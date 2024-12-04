@@ -302,8 +302,13 @@ const putBook = async (req: Request, res: Response) => {
 
 const deleteBook = async (req: Request, res: Response) => {
     try {
-        const { id, idSuc } = req.params;
-        
+        const { id} = req.params;
+        const idSuc = req.body.user.User.ID_Sucursal;
+        console.log('ID del libro: ' + id);
+        console.log('Tipo de ID del libro: ' + typeof id);
+        console.log('ID de la sucursal: ' + idSuc);
+        console.log('Tipo de ID de la sucursal: ' + typeof idSuc);
+
         await sequelize.transaction(async (t) => {
             // Primero eliminamos los ejemplares
             await Ejemplares.destroy({
