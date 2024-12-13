@@ -140,6 +140,9 @@ const getPrestamos = async (req: Request, res: Response) => {
                     model: Ejemplares,
                     as: 'Ejemplar',
                     attributes: [],
+                    where: {
+                        ID_Sucursal: req.body.user.User.ID_Sucursal
+                    },
                     include: [
                         {
                             model: Book,

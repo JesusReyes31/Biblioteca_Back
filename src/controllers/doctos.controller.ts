@@ -53,7 +53,7 @@ const generarRecibo = async (req: Request, res: Response) => {
             include: [
                 {
                     model: Ejemplares,
-                    as:'Ejemplar',
+                    as: 'Ejemplar',
                     attributes: [],
                     include: [{
                         model: Book,
@@ -66,7 +66,7 @@ const generarRecibo = async (req: Request, res: Response) => {
 
         // Crear el PDF
         const pdfDoc = await PDFDocument.create();
-        let page = pdfDoc.addPage([600, 800]); // Tamaño carta aproximado
+        const page = pdfDoc.addPage([600, 800]);
         const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
         const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
@@ -75,49 +75,71 @@ const generarRecibo = async (req: Request, res: Response) => {
         const margin = 50;
         let yPosition = height - margin;
 
-        // Título
-        page.drawText('Recibo de Compra', {
+        // Encabezado con fondo
+        page.drawRectangle({
+            x: 0,
+            y: height - 120,
+            width,
+            height: 120,
+            color: rgb(0.12, 0.29, 0.49)
+        });
+
+        // Logo o Título
+        page.drawText('LIBRERÍA', {
             x: margin,
             y: yPosition,
-            size: 24,
+            size: 28,
             font: helveticaBold,
-            color: rgb(0, 0, 0)
+            color: rgb(1, 1, 1)
+        });
+        yPosition -= 25;
+
+        page.drawText('RECIBO DE COMPRA', {
+            x: margin,
+            y: yPosition,
+            size: 16,
+            font: helveticaBold,
+            color: rgb(1, 1, 1)
         });
         yPosition -= 40;
 
-        // Información de la venta
-        page.drawText(`Número de Venta: ${venta.ID_Venta}`, {
+        // Información de la venta con fondo gris claro
+        page.drawRectangle({
+            x: margin - 10,
+            y: yPosition - 60,
+            width: width - (2 * margin) + 20,
+            height: 70,
+            color: rgb(0.95, 0.95, 0.95)
+        });
+
+        page.drawText(`Folio: #${venta.ID_Venta.toString().padStart(6, '0')}`, {
             x: margin,
             y: yPosition,
             size: 12,
-            font: helveticaFont
-        });
-        yPosition -= 20;
-
-        page.drawText(`Fecha: ${new Date(venta.Fecha_Venta).toLocaleDateString()}`, {
-            x: margin,
-            y: yPosition,
-            size: 12,
-            font: helveticaFont
-        });
-        yPosition -= 40;
-
-        // Información del cliente
-        page.drawText('Información del Cliente:', {
-            x: margin,
-            y: yPosition,
-            size: 14,
             font: helveticaBold
         });
-        yPosition -= 20;
+        
+        console.log(venta.Fecha_Venta)
+        page.drawText(`Fecha de Venta: ${new Date(venta.Fecha_Venta).toLocaleDateString('es-ES', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        })}`, {
+            x: width - margin - 200,
+            y: yPosition,
+            size: 12,
+            font: helveticaFont
+        });
+        yPosition -= 25;
 
-        page.drawText(`Nombre: ${venta.nombre_cliente}`, {
+        // Información del cliente
+        page.drawText(`Cliente: ${venta.nombre_cliente}`, {
             x: margin,
             y: yPosition,
             size: 12,
             font: helveticaFont
         });
-        yPosition -= 20;
+        yPosition -= 25;
 
         page.drawText(`Correo: ${venta.correo_cliente}`, {
             x: margin,
@@ -129,113 +151,152 @@ const generarRecibo = async (req: Request, res: Response) => {
 
         // Tabla de productos
         const tableTop = yPosition;
-        const tableHeaders = ['Título', 'Cantidad', 'Precio', 'Subtotal'];
-        const columnWidths = [250, 80, 100, 100];
-        let xPosition = margin;
+        const tableHeaders = ['Título', 'Cantidad', 'Precio Unit.', 'Subtotal'];
+        const columnWidths = [280, 80, 90, 90];
+
+        // Fondo del encabezado de la tabla
+        page.drawRectangle({
+            x: margin - 5,
+            y: tableTop - 5,
+            width: width - (2 * margin) + 10,
+            height: 30,
+            color: rgb(0.12, 0.29, 0.49)
+        });
 
         // Encabezados de la tabla
+        let xPosition = margin;
         tableHeaders.forEach((header, index) => {
             page.drawText(header, {
                 x: xPosition,
-                y: tableTop,
+                y: tableTop + 7,
                 size: 12,
-                font: helveticaBold
+                font: helveticaBold,
+                color: rgb(1, 1, 1)
             });
             xPosition += columnWidths[index];
         });
-        yPosition = tableTop - 20;
+        yPosition = tableTop - 30;
 
         // Detalles de productos
-        detallesVenta.forEach(detalle => {
+        detallesVenta.forEach((detalle, index) => {
+            // Fondo alternado para las filas
+            if (index % 2 === 0) {
+                page.drawRectangle({
+                    x: margin - 5,
+                    y: yPosition - 5,
+                    width: width - (2 * margin) + 10,
+                    height: 25,
+                    color: rgb(0.95, 0.95, 0.95)
+                });
+            }
+
             xPosition = margin;
             const subtotal = detalle.Cantidad * detalle.Precio;
 
-            page.drawText(detalle.Titulo, {
+            // Título (truncado si es muy largo)
+            const tituloTruncado = detalle.Titulo.length > 45 
+                ? detalle.Titulo.substring(0, 42) + '...' 
+                : detalle.Titulo;
+            
+            page.drawText(tituloTruncado, {
                 x: xPosition,
-                y: yPosition,
+                y: yPosition + 5,
                 size: 10,
                 font: helveticaFont
             });
             xPosition += columnWidths[0];
 
             page.drawText(detalle.Cantidad.toString(), {
-                x: xPosition,
-                y: yPosition,
+                x: xPosition + 30,
+                y: yPosition + 5,
                 size: 10,
                 font: helveticaFont
             });
             xPosition += columnWidths[1];
 
             page.drawText(`$${detalle.Precio.toFixed(2)}`, {
-                x: xPosition,
-                y: yPosition,
+                x: xPosition + 20,
+                y: yPosition + 5,
                 size: 10,
                 font: helveticaFont
             });
             xPosition += columnWidths[2];
 
-            page.drawText(`$${subtotal.toFixed(2)}`, {
-                x: xPosition,
-                y: yPosition,
+            page.drawText(`$${venta.Total.toFixed(2)-4}`, {
+                x: xPosition + 20,
+                y: yPosition + 5,
                 size: 10,
                 font: helveticaFont
             });
 
-            yPosition -= 20;
+            yPosition -= 30;
         });
-        
-        //Cargos
-        // yPosition -= 0; // Espacio adicional antes de los cargos
-        xPosition = margin;
-        
-        // Título "Cargos"
+
+        // Cargos por servicio
         page.drawText("Cargos por servicio", {
-            x: xPosition,
-            y: yPosition,
+            x: margin,
+            y: yPosition + 5,
             size: 10,
             font: helveticaFont
         });
         
-        // Mover a la última columna para el monto
-        xPosition = margin + columnWidths[0] + columnWidths[1] + columnWidths[2];
-        
-        // Monto de los cargos
         page.drawText("$4.00", {
-            x: xPosition,
-            y: yPosition,
+            x: width - margin - 70,
+            y: yPosition + 5,
             size: 10,
             font: helveticaFont
         });
 
-        // Total y método de pago
-        yPosition -= 30;
-        page.drawText(`Total: $${venta.Total.toFixed(2)}`, {
-            x: width - margin - 150,
-            y: yPosition,
+        // Total y método de pago con fondo
+        yPosition -= 40;
+        page.drawRectangle({
+            x: width - margin - 200,
+            y: yPosition - 50,
+            width: 200,
+            height: 70,
+            color: rgb(0.95, 0.95, 0.95)
+        });
+
+        page.drawText(`Total:`, {
+            x: width - margin - 180,
+            y: yPosition + 5,
             size: 14,
             font: helveticaBold
         });
-        yPosition -= 20;
 
-        page.drawText(`Método de Pago: ${venta.ID_Metodo_Pago ? 'Pago con Tarjeta' : 'Pago en Efectivo'}`, {
-            x: width - margin - 190,
-            y: yPosition,
+        page.drawText(`$${venta.Total.toFixed(2)}`, {
+            x: width - margin - 70,
+            y: yPosition + 5,
+            size: 14,
+            font: helveticaBold
+        });
+        yPosition -= 25;
+
+        page.drawText(`Método de Pago:`, {
+            x: width - margin - 180,
+            y: yPosition + 5,
+            size: 12,
+            font: helveticaFont
+        });
+
+        page.drawText(venta.ID_Metodo_Pago ? 'Tarjeta' : 'Efectivo', {
+            x: width - margin - 70,
+            y: yPosition + 5,
             size: 12,
             font: helveticaFont
         });
 
         // Pie de página
-        page.drawText('Gracias por su compra', {
+        page.drawText('¡Gracias por su compra!', {
             x: width / 2 - 50,
             y: margin,
-            size: 10,
-            font: helveticaFont
+            size: 12,
+            font: helveticaBold,
+            color: rgb(0.5, 0.5, 0.5)
         });
 
-        // Generar el PDF
+        // Generar y enviar el PDF
         const pdfBytes = await pdfDoc.save();
-
-        // Enviar el PDF como respuesta
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename=recibo-${venta.ID_Venta}.pdf`);
         res.send(Buffer.from(pdfBytes));
@@ -257,7 +318,7 @@ const generarFactura = async (req: Request, res: Response) => {
 
         const pendiente = await Pago_Pendiente.findOne({where:{ID_Venta:venta.ID_Venta}});
         if(pendiente){
-            return res.status(404).json({ message: "No se puede enviar factura, aun no se ha realizado el pago" });
+            return res.status(404).json({ message: "No se puede cargar la factura, aun no se ha realizado el pago" });
         }
 
         const response = await fetch(
@@ -337,15 +398,71 @@ const generarInformePrestamos = async (req: Request, res: Response) => {
         // Configuración de la página
         const { width, height } = page.getSize();
         const margin = 35;
+
+        // Si no hay datos, crear un PDF con mensaje
+        if (prestamos.length === 0) {
+            // Encabezado
+            page.drawRectangle({
+                x: 0,
+                y: height - 100,
+                width,
+                height: 100,
+                color: rgb(0.12, 0.29, 0.49)
+            });
+
+            // Título
+            page.drawText('INFORME DE PRÉSTAMOS', {
+                x: margin,
+                y: height - 60,
+                size: 24,
+                font: helveticaBold,
+                color: rgb(1, 1, 1)
+            });
+
+            // Fecha
+            const fechaActual = new Date().toLocaleDateString();
+            page.drawText(`Fecha de generación: ${fechaActual}`, {
+                x: margin,
+                y: height - 85,
+                size: 12,
+                font: helveticaFont,
+                color: rgb(1, 1, 1)
+            });
+
+            // Mensaje central
+            page.drawText('No hay préstamos registrados para mostrar', {
+                x: width / 2 - 150,
+                y: height / 2,
+                size: 16,
+                font: helveticaBold,
+                color: rgb(0.5, 0.5, 0.5)
+            });
+
+            const pdfBytes = await pdfDoc.save();
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `inline; filename=informe-prestamos-${fechaActual}.pdf`);
+            res.send(Buffer.from(pdfBytes));
+            return;
+        }
+
         let yPosition = height - margin - 20;
 
+        // Encabezado con fondo
+        page.drawRectangle({
+            x: 0,
+            y: height - 100,
+            width,
+            height: 100,
+            color: rgb(0.12, 0.29, 0.49)
+        });
+
         // Título y fecha del informe
-        page.drawText('Informe de Préstamos', {
+        page.drawText('INFORME DE PRÉSTAMOS', {
             x: margin,
             y: yPosition,
             size: 24,
             font: helveticaBold,
-            color: rgb(0, 0, 0)
+            color: rgb(1, 1, 1)
         });
         yPosition -= 30;
 
@@ -354,27 +471,38 @@ const generarInformePrestamos = async (req: Request, res: Response) => {
             x: margin,
             y: yPosition,
             size: 12,
-            font: helveticaFont
+            font: helveticaFont,
+            color: rgb(1, 1, 1)
         });
         yPosition -= 40;
 
-        // Resumen
+        // Resumen con fondo
         const prestamosActivos = prestamos.filter(p => p.Estado === 'Pendiente').length;
         const prestamosDevueltos = prestamos.filter(p => p.Estado === 'Devuelto').length;
 
-        page.drawText('Resumen:', {
+        page.drawRectangle({
+            x: margin - 10,
+            y: yPosition - 70,
+            width: width - (2 * margin) + 20,
+            height: 90,
+            color: rgb(0.95, 0.95, 0.95)
+        });
+
+        page.drawText('RESUMEN', {
             x: margin,
             y: yPosition,
             size: 14,
-            font: helveticaBold
+            font: helveticaBold,
+            color: rgb(0.2, 0.2, 0.2)
         });
-        yPosition -= 20;
+        yPosition -= 25;
 
         page.drawText(`Total de préstamos: ${prestamos.length}`, {
             x: margin,
             y: yPosition,
             size: 12,
-            font: helveticaFont
+            font: helveticaFont,
+            color: rgb(0.2, 0.2, 0.2)
         });
         yPosition -= 20;
 
@@ -382,7 +510,8 @@ const generarInformePrestamos = async (req: Request, res: Response) => {
             x: margin,
             y: yPosition,
             size: 12,
-            font: helveticaFont
+            font: helveticaFont,
+            color: prestamosActivos > 0 ? rgb(0.9, 0.3, 0.3) : rgb(0.2, 0.2, 0.2)
         });
         yPosition -= 20;
 
@@ -390,7 +519,8 @@ const generarInformePrestamos = async (req: Request, res: Response) => {
             x: margin,
             y: yPosition,
             size: 12,
-            font: helveticaFont
+            font: helveticaFont,
+            color: rgb(0.2, 0.7, 0.2)
         });
         yPosition -= 40;
 
@@ -399,24 +529,45 @@ const generarInformePrestamos = async (req: Request, res: Response) => {
         const columnWidths = [40, 80, 120, 80, 90, 90, 80];
         let xPosition = margin;
 
+        // Fondo del encabezado de la tabla
+        page.drawRectangle({
+            x: margin - 5,
+            y: yPosition - 5,
+            width: width - (2 * margin) + 10,
+            height: 25,
+            color: rgb(0.12, 0.29, 0.49)
+        });
+
         // Encabezados de la tabla
         tableHeaders.forEach((header, index) => {
             page.drawText(header, {
                 x: xPosition,
-                y: yPosition,
+                y: yPosition+7,
                 size: 10,
-                font: helveticaBold
+                font: helveticaBold,
+                color: rgb(1, 1, 1)
             });
             xPosition += columnWidths[index];
         });
         yPosition -= 20;
 
-        // Contenido de la tabla
-        prestamos.forEach(prestamo => {
+        // Contenido de la tabla con filas alternadas
+        prestamos.forEach((prestamo, index) => {
             // Si no hay suficiente espacio en la página actual, crear una nueva
             if (yPosition < margin + 50) {
                 page = pdfDoc.addPage([600, 800]);
                 yPosition = height - margin;
+            }
+
+            // Fondo alternado para las filas
+            if (index % 2 === 0) {
+                page.drawRectangle({
+                    x: margin - 5,
+                    y: yPosition - 5,
+                    width: width - (2 * margin) + 10,
+                    height: 20,
+                    color: rgb(0.95, 0.95, 0.95)
+                });
             }
 
             xPosition = margin;
@@ -439,8 +590,11 @@ const generarInformePrestamos = async (req: Request, res: Response) => {
             });
             xPosition += columnWidths[1];
 
-            // Libro
-            page.drawText(prestamo.titulo_libro, {
+            // Libro (truncado si es muy largo)
+            const tituloTruncado = prestamo.titulo_libro.length > 25 
+                ? prestamo.titulo_libro.substring(0, 22) + '...' 
+                : prestamo.titulo_libro;
+            page.drawText(tituloTruncado, {
                 x: xPosition,
                 y: yPosition,
                 size: 9,
@@ -457,7 +611,7 @@ const generarInformePrestamos = async (req: Request, res: Response) => {
             });
             xPosition += columnWidths[3];
 
-            // Fecha Préstamo
+            // Fechas formateadas
             page.drawText(new Date(prestamo.Fecha_prestamo).toLocaleDateString(), {
                 x: xPosition,
                 y: yPosition,
@@ -466,7 +620,6 @@ const generarInformePrestamos = async (req: Request, res: Response) => {
             });
             xPosition += columnWidths[4];
 
-            // Fecha Devolución
             page.drawText(new Date(prestamo.Fecha_devolucion_prevista).toLocaleDateString(), {
                 x: xPosition,
                 y: yPosition,
@@ -475,7 +628,7 @@ const generarInformePrestamos = async (req: Request, res: Response) => {
             });
             xPosition += columnWidths[5];
 
-            // Estado
+            // Estado con color
             const colorEstado = prestamo.Estado === 'Pendiente' ? rgb(0.9, 0.3, 0.3) : rgb(0.2, 0.7, 0.2);
             page.drawText(prestamo.Estado, {
                 x: xPosition,
@@ -488,10 +641,16 @@ const generarInformePrestamos = async (req: Request, res: Response) => {
             yPosition -= 20;
         });
 
-        // Generar el PDF
-        const pdfBytes = await pdfDoc.save();
+        // Pie de página
+        page.drawText('Sistema de Gestión de Biblioteca', {
+            x: width / 2 - 80,
+            y: margin,
+            size: 10,
+            font: helveticaFont,
+            color: rgb(0.5, 0.5, 0.5)
+        });
 
-        // Enviar el PDF como respuesta
+        const pdfBytes = await pdfDoc.save();
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename=informe-prestamos-${fechaActual}.pdf`);
         res.send(Buffer.from(pdfBytes));
@@ -506,13 +665,13 @@ const generarReporte = async (req: Request, res: Response) => {
     try {
         const { tipo, fechaInicio, fechaFin } = req.body;
         let data: any[] = [];
+        const hasSucursal = req.body.user.User.ID_Sucursal;
         
         // Consultas según el tipo de reporte
         switch (tipo) {
             case 'inventario':
-                const whereClause = req.body.user.User.ID_Sucursal ? { ID_Sucursal: req.body.user.User.ID_Sucursal } : {};
                 data = await Ejemplares.findAll({
-                    where: whereClause,
+                    where: hasSucursal ? { ID_Sucursal: req.body.user.User.ID_Sucursal } : {},
                     attributes: [
                         [Sequelize.col('Book.Titulo'), 'Titulo'],
                         [Sequelize.col('Book.Autor'), 'Autor'],
@@ -536,16 +695,6 @@ const generarReporte = async (req: Request, res: Response) => {
                     ],
                     raw: true
                 });
-
-                // Formatear los datos para el reporte
-                data = data.map(item => ({
-                    'Título': item.Titulo,
-                    'Autor': item.Autor,
-                    'ISBN': item.ISBN,
-                    'Sucursal': item.Sucursal,
-                    'Cantidad': item.Cantidad,
-                    'Precio': `$${item.Precio.toFixed(2)}`
-                }));
                 break;
 
             case 'libros-genero':
@@ -558,7 +707,8 @@ const generarReporte = async (req: Request, res: Response) => {
                     ],
                     include: [{
                         model: Ejemplares,
-                        attributes: []
+                        attributes: [],
+                        where: hasSucursal ? { ID_Sucursal: req.body.user.User.ID_Sucursal } : {}
                     }],
                     group: ['Book.ID', 'Book.Titulo', 'Book.Autor', 'Book.Genero'],
                     raw: true
@@ -570,7 +720,8 @@ const generarReporte = async (req: Request, res: Response) => {
                     where: {
                         Fecha_prestamo: {
                             [Op.between]: [fechaInicio, fechaFin]
-                        }
+                        },
+                        ...(hasSucursal && { '$Ejemplar.ID_Sucursal$': req.body.user.User.ID_Sucursal })
                     },
                     attributes: [
                         [Sequelize.col('user.Nombre_Usuario'), 'Usuario'],
@@ -603,7 +754,8 @@ const generarReporte = async (req: Request, res: Response) => {
                     where: {
                         Fecha_prestamo: {
                             [Op.between]: [fechaInicio, fechaFin]
-                        }
+                        },
+                        ...(hasSucursal && { '$Ejemplar.ID_Sucursal$': req.body.user.User.ID_Sucursal })
                     },
                     attributes: [
                         [Sequelize.col('Ejemplar.Book.Genero'), 'Genero'],
@@ -629,7 +781,8 @@ const generarReporte = async (req: Request, res: Response) => {
                         Estado: 'Pendiente',
                         Fecha_prestamo: {
                             [Op.between]: [fechaInicio, fechaFin]
-                        }
+                        },
+                        ...(hasSucursal && { '$Ejemplar.ID_Sucursal$': req.body.user.User.ID_Sucursal })
                     },
                     attributes: [
                         [Sequelize.col('user.Nombre_Usuario'), 'Usuario'],
@@ -661,7 +814,8 @@ const generarReporte = async (req: Request, res: Response) => {
                     where: {
                         Fecha_Venta: {
                             [Op.between]: [fechaInicio, fechaFin]
-                        }
+                        },
+                        ...(hasSucursal && { '$Details.Ejemplar.ID_Sucursal$': req.body.user.User.ID_Sucursal })
                     },
                     attributes: [
                         'ID_Venta',
@@ -692,8 +846,128 @@ const generarReporte = async (req: Request, res: Response) => {
                 });
                 break;
 
+            case 'prestamos-libros':
+                data = await Prestamos.findAll({
+                    where: {
+                        Fecha_prestamo: {
+                            [Op.between]: [fechaInicio, fechaFin]
+                        },
+                        ...(hasSucursal && { '$Ejemplar.ID_Sucursal$': req.body.user.User.ID_Sucursal })
+                    },
+                    attributes: [
+                        [Sequelize.col('Ejemplar.Book.Titulo'), 'Libro'],
+                        [Sequelize.col('Ejemplar.Book.Autor'), 'Autor'],
+                        [Sequelize.col('Ejemplar.Book.ISBN'), 'ISBN'],
+                        [Sequelize.fn('COUNT', Sequelize.col('Prestamos.ID_Prestamo')), 'Total_Prestamos']
+                    ],
+                    include: [{
+                        model: Ejemplares,
+                        as: 'Ejemplar',
+                        attributes: [],
+                        include: [{
+                            model: Book,
+                            attributes: []
+                        }]
+                    }],
+                    group: ['Ejemplar.Book.Titulo', 'Ejemplar.Book.Autor', 'Ejemplar.Book.ISBN'],
+                    raw: true
+                });
+                break;
+
             default:
                 return res.status(400).json({ message: 'Tipo de reporte no válido' });
+        }
+
+        // Formatear fechas en los datos
+        data = data.map(item => {
+            const newItem = { ...item };
+            // Formatear fechas si existen en el objeto
+            if (newItem.Fecha_Venta) {
+                newItem.Fecha_Venta = new Date(newItem.Fecha_Venta).toLocaleDateString('es-ES', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                });
+            }
+            if (newItem.Fecha_prestamo) {
+                newItem.Fecha_prestamo = new Date(newItem.Fecha_prestamo).toLocaleDateString('es-ES', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                });
+            }
+            if (newItem.Fecha_devolucion_prevista) {
+                newItem.Fecha_devolucion_prevista = new Date(newItem.Fecha_devolucion_prevista).toLocaleDateString('es-ES', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                });
+            }
+            return newItem;
+        });
+
+        // Después de obtener los datos y antes de crear el PDF
+        if (data.length === 0) {
+            // Crear un PDF simple con mensaje de no datos
+            const pdfDoc = await PDFDocument.create();
+            const page = pdfDoc.addPage([800, 1000]);
+            const { width, height } = page.getSize();
+            const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+            const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+            // Encabezado
+            page.drawRectangle({
+                x: 0,
+                y: height - 100,
+                width,
+                height: 100,
+                color: rgb(0.12, 0.29, 0.49) // Azul oscuro
+            });
+
+            // Título
+            page.drawText(`REPORTE: ${tipo.toUpperCase()}`, {
+                x: 50,
+                y: height - 60,
+                size: 24,
+                font: helveticaBold,
+                color: rgb(1, 1, 1)
+            });
+
+            // Fecha de generación
+            const fechaGeneracion = new Date().toLocaleDateString();
+            page.drawText(`Fecha de generación: ${fechaGeneracion}`, {
+                x: 50,
+                y: height - 85,
+                size: 12,
+                font: helvetica,
+                color: rgb(1, 1, 1)
+            });
+
+            // Mensaje de no datos
+            page.drawText('No hay información disponible para el reporte seleccionado', {
+                x: width / 2 - 200,
+                y: height / 2,
+                size: 16,
+                font: helveticaBold,
+                color: rgb(0.5, 0.5, 0.5)
+            });
+
+            if (fechaInicio && fechaFin) {
+                page.drawText(`Período consultado: ${new Date(fechaInicio).toLocaleDateString()} - ${new Date(fechaFin).toLocaleDateString()}`, {
+                    x: width / 2 - 150,
+                    y: height / 2 - 30,
+                    size: 12,
+                    font: helvetica,
+                    color: rgb(0.5, 0.5, 0.5)
+                });
+            }
+
+            const pdfBytes = await pdfDoc.save();
+            
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `inline; filename=reporte-${tipo}-${fechaGeneracion}.pdf`);
+            res.send(Buffer.from(pdfBytes));
+            return;
         }
 
         // Configuración del PDF

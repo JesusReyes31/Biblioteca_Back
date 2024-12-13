@@ -499,7 +499,7 @@ const credencial = async (req: Request, res: Response) => {
                     page.drawRectangle({
                         x: 240,
                         y: yPos - 5,
-                        width: 100,
+                        width: 120,
                         height: 20,
                         color: accentColor,
                     });
@@ -515,7 +515,7 @@ const credencial = async (req: Request, res: Response) => {
 
                     // Valor
                     page.drawText(value, {
-                        x: 350,
+                        x: 370,
                         y: yPos,
                         font: helvetica,
                         size: 14,
@@ -524,7 +524,7 @@ const credencial = async (req: Request, res: Response) => {
                 };
 
                 drawUserInfo('NOMBRE:', User.Nombre_completo, 260);
-                drawUserInfo('USUARIO:', User.Tipo_Usuario, 220);
+                drawUserInfo('TIPO DE USUARIO:', User.Tipo_Usuario, 220);
                 drawUserInfo('ID:', User.ID.toString(), 180);
 
                 // Código de barras mejorado

@@ -10,7 +10,7 @@ import { sequelize } from "../config/sql";
 const getBook = async (req: Request, res: Response) => {
     try {
         const { id,idSuc } = req.params;
-        const book = await Ejemplares.findOne({where:{ID_Libro:id,ID_Sucursal:idSuc},
+        const book = await Ejemplares.findOne({where:{ID_Libro:id,ID_Sucursal:idSuc,Estado:true},
             attributes:['ID','ID_Libro','ID_Sucursal','Cantidad','Precio',
                 [Sequelize.col('Book.Titulo'),'Titulo'],
                 [Sequelize.col('Book.Autor'),'Autor'],
@@ -48,6 +48,7 @@ const getBooks = async (req: Request, res: Response) => {
         let books;
         if(!idSuc){
             books = await Ejemplares.findAll({
+                where:{Estado:true},
                 attributes:['ID','ID_Libro','ID_Sucursal','Cantidad','Precio',
                     [Sequelize.col('Book.Titulo'),'Titulo'],
                     [Sequelize.col('Book.Autor'),'Autor'],
@@ -75,7 +76,7 @@ const getBooks = async (req: Request, res: Response) => {
             });
         }else{
             books = await Ejemplares.findAll({
-                where:{ID_Sucursal:parseInt(idSuc)},
+                where:{ID_Sucursal:parseInt(idSuc),Estado:true},
                 attributes:['ID','ID_Libro','ID_Sucursal','Cantidad','Precio',
                     [Sequelize.col('Book.Titulo'),'Titulo'],
                     [Sequelize.col('Book.Autor'),'Autor'],
@@ -140,9 +141,20 @@ const getBooksDisponibles = async (req: Request, res: Response) => {
     }
 }
 
+//Para inventario
+const getAllBooks = async (req: Request, res: Response) => {
+    const books = await Book.findAll();
+    res.status(200).json(books);
+}
+
 const postBook = async (req: Request, res: Response) => {
     try {
-        const uploadResult = await uploadImage(req, res);
+        let uploadResult;
+        if(req.body.Imagen.includes('https://storage.googleapis.com/')){
+            uploadResult = {success:true,url:req.body.Imagen}
+        }else{
+            uploadResult = await uploadImage(req, res);
+        }
         if (!uploadResult.success || !uploadResult.url) {
             return res.status(400).json({ 
                 message: !uploadResult.success ? uploadResult.message : 'No se pudo obtener la URL de la imagen' 
@@ -182,7 +194,8 @@ const postBook = async (req: Request, res: Response) => {
             ID_Libro: bookID,
             ID_Sucursal: parseInt(req.body.user.User.ID_Sucursal),
             Cantidad: parseInt(req.body.Cantidad),
-            Precio: parseFloat(req.body.Precio)
+            Precio: parseFloat(req.body.Precio),
+            Estado: true
         };
 
         try {
@@ -219,6 +232,8 @@ const postBook = async (req: Request, res: Response) => {
                 if (ejemplarExistente) {
                     // Si existe, actualizar cantidad
                     ejemplarExistente.Cantidad += ejemplarData.Cantidad;
+                    ejemplarExistente.Estado = true;
+                    ejemplarExistente.Precio = ejemplarData.Precio;
                     ejemplar = await ejemplarExistente.save({ transaction: t });
                 } else {
                     // Si no existe, crear nuevo
@@ -272,7 +287,8 @@ const putBook = async (req: Request, res: Response) => {
         };
         const ejemplarData = {
             Cantidad: parseInt(req.body.Cantidad),
-            Precio: parseFloat(req.body.Precio)
+            Precio: parseFloat(req.body.Precio),
+            Estado: req.body.Cantidad > 0 ? true : false
         };
         const result = await sequelize.transaction(async (t) => {
             const book = await Book.findByPk(id, { transaction: t });
@@ -287,10 +303,10 @@ const putBook = async (req: Request, res: Response) => {
             if (!book || !ejemplar) {
                 throw new Error("No se encontró el libro o ejemplar");
             }
-
             await book.update(bookData, { transaction: t });
+            await book.save({ transaction: t });
             await ejemplar.update(ejemplarData, { transaction: t });
-            
+            await ejemplar.save({ transaction: t });
             return { book, ejemplar };
         });
 
@@ -304,36 +320,12 @@ const deleteBook = async (req: Request, res: Response) => {
     try {
         const { id} = req.params;
         const idSuc = req.body.user.User.ID_Sucursal;
-        console.log('ID del libro: ' + id);
-        console.log('Tipo de ID del libro: ' + typeof id);
-        console.log('ID de la sucursal: ' + idSuc);
-        console.log('Tipo de ID de la sucursal: ' + typeof idSuc);
-
-        await sequelize.transaction(async (t) => {
-            // Primero eliminamos los ejemplares
-            await Ejemplares.destroy({
-                where: { 
-                    ID_Libro: id,
-                    ID_Sucursal: idSuc
-                },
-                transaction: t
-            });
-
-            // Luego verificamos si quedan ejemplares del libro
-            const remainingEjemplares = await Ejemplares.count({
-                where: { ID_Libro: id },
-                transaction: t
-            });
-
-            // Si no quedan ejemplares, eliminamos el libro
-            if (remainingEjemplares === 0) {
-                await Book.destroy({
-                    where: { ID: id },
-                    transaction: t
-                });
-            }
-        });
-
+        const ejemplar = await Ejemplares.findOne({where:{ID_Libro:id,ID_Sucursal:idSuc}});
+        if (!ejemplar) {
+            return res.status(404).json({ message: "No se encontró el ejemplar del libro" });
+        }
+        ejemplar.Estado = false;
+        await ejemplar.save();
         res.json({ message: "Libro y ejemplares eliminados correctamente" });
     } catch (error) {
         handleHttp(res, 'ERROR_DELETE_BOOK', error);
@@ -347,4 +339,4 @@ const deleteBook = async (req: Request, res: Response) => {
 // }
 
 
-export { getBook, getBooks, getBooksDisponibles, postBook, putBook, deleteBook/*, obtenerURL */};
+export { getBook, getBooks, getBooksDisponibles,getAllBooks, postBook, putBook, deleteBook/*, obtenerURL */};

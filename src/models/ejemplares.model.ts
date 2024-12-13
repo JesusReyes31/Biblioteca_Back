@@ -7,6 +7,7 @@ interface EjemplaresAttributes {
     ID_Sucursal: number;
     Cantidad: number;
     Precio: number;
+    Estado: boolean;
 }
 
 interface EjemplaresCreationAttributes extends Optional<EjemplaresAttributes, 'ID'> {}
@@ -17,6 +18,7 @@ class Ejemplares extends Model<EjemplaresAttributes, EjemplaresCreationAttribute
     public ID_Sucursal!: number;
     public Cantidad!: number;
     public Precio!: number;
+    public Estado!: boolean;
 }
 
 // Inicialización del modelo
@@ -41,6 +43,10 @@ Ejemplares.init(
         },
         Precio: {
             type: DataTypes.FLOAT,
+            allowNull: false,
+        },
+        Estado: {
+            type: DataTypes.BOOLEAN,
             allowNull: false,
         },
     },
