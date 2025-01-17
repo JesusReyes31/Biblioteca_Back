@@ -47,8 +47,8 @@ const generarRecibo = async (req: Request, res: Response) => {
             where: { ID_Venta: parseInt(id) },
             attributes: [
                 'Cantidad',
+                'Precio',
                 [Sequelize.col('Ejemplar.Book.Titulo'), 'Titulo'],
-                [Sequelize.col('Ejemplar.Precio'), 'Precio']
             ],
             include: [
                 {
@@ -222,7 +222,7 @@ const generarRecibo = async (req: Request, res: Response) => {
             });
             xPosition += columnWidths[2];
 
-            page.drawText(`$${venta.Total.toFixed(2)-4}`, {
+            page.drawText(`$${(detalle.Cantidad * detalle.Precio).toFixed(2)}`, {
                 x: xPosition + 20,
                 y: yPosition + 5,
                 size: 10,

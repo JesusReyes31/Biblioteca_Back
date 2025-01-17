@@ -46,6 +46,7 @@ const getBooksByGenre = async (req: Request, res: Response) => {
             include: [{
                 model: Ejemplares,
                 attributes: ['Cantidad', 'ID_Sucursal','ID','Precio'],
+                where:{Estado:1},
                 include: [{
                     model: Sucursales,
                     as: 'Sucursales',

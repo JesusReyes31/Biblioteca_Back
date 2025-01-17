@@ -231,7 +231,11 @@ const postBook = async (req: Request, res: Response) => {
                 let ejemplar;
                 if (ejemplarExistente) {
                     // Si existe, actualizar cantidad
-                    ejemplarExistente.Cantidad += ejemplarData.Cantidad;
+                    if(ejemplarExistente.Estado == false){
+                        ejemplarExistente.Cantidad = ejemplarData.Cantidad;
+                    }else{
+                        ejemplarExistente.Cantidad += ejemplarData.Cantidad;
+                    }
                     ejemplarExistente.Estado = true;
                     ejemplarExistente.Precio = ejemplarData.Precio;
                     ejemplar = await ejemplarExistente.save({ transaction: t });

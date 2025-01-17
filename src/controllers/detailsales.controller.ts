@@ -102,7 +102,12 @@ const postDetail = async(req: Request, res: Response) => {
                 console.error('Error al procesar el detalle:', error);
             }
         });        
-
+        
+        Detalles.push({
+            ID_Libro: "",
+            Titulo: "Cargos por Servicio",
+            Precio: 4
+        });
         const venta = await Venta.findByPk(parseInt(id));
         if (!venta) {
             throw new Error('Venta no encontrada');
